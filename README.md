@@ -1,3 +1,7 @@
-This is a basic DYI Redis server. It supports basic operations and commands like PING, ECHO etc. 
+This is a basic DYI Redis server written in TypeScript. It currently supports SET,GET,PING,ECHO.
 
-Currently a work in progress. 
+It parses incomming commands with the DataParser class following the official Redis Serialization Protocol(RESP). SET/GET/XADD Operations are implemented with a map.
+
+The project is in progress.
+
+TODO: data persistance, data streaming, replication.
