@@ -44,16 +44,18 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
         break;
 
         case CommonRequestCommands.XADD:
-          if (!payload || payload.length < 4) {
-            response = "-ERR wrong number of arguments for 'XADD' command\r\n";
-          } else { 
-              const [streamKey, id, ...fields] = payload;
+          if (payload && payload.length >= 3) {
+            const [streamKey, id, ...fields] = payload;
+            try {
               storage.xadd(streamKey, id, ...fields);
               response = encodeRedisResponse(CommonRequestCommands.XADD, id);
-
+            } catch (error: any) {
+              response = `-ERR ${error.message}\r\n`;
+            }
+          } else {
+            response = "-ERR wrong number of arguments for 'xadd' command\r\n";
           }
-          
-        break;
+          break;
 
         case CommonRequestCommands.GETSTR:
           if (payload && payload.length >= 1) {
@@ -81,7 +83,7 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 
         case CommonRequestCommands.ECHO:
           if (payload && payload.length >= 1) {
-            response = encodeRedisResponse(CommonRequestCommands.ECHO, payload);
+            response = encodeRedisResponse(CommonRequestCommands.ECHO, payload!);
           }else {
             response = "-ERR wrong number of arguments for 'get' command\r\n";
           }
@@ -97,7 +99,6 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
           }else {
             response = "-ERR wrong number of arguments for 'get' command\r\n";
           }
-
           break;
 
         default:
