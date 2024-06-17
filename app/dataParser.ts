@@ -27,12 +27,10 @@ export class DataParser {
     this.data = data;
     this.defineDataType();
     this.parsedData = this.parseData(); // Assign parsed data here
-    console.log('Parsed data:', this.parsedData); // Log parsed data
   }
 
   private defineDataType() {
     const firstByte = String.fromCharCode(this.data[0]);
-    console.log(`First byte: ${firstByte}`); // Log the first byte
 
     switch (firstByte) {
       case "+":
@@ -80,7 +78,6 @@ export class DataParser {
       default:
         this.dataType = RESPDataType.Unknown;
     }
-    console.log(`Data type: ${RESPDataType[this.dataType]}`); // Log the data type
   }
 
   private parseData(): any {
@@ -98,14 +95,12 @@ export class DataParser {
 
   private parseDataAsSimpleString() {
     const result = this.data.slice(1, -2).toString();
-    console.log('Parsed simple string:', result);
     return result;
   }
 
   private bulkStringParser() {
     const length = parseInt(this.data.slice(1, this.data.indexOf('\r\n')).toString(), 10);
     const content = this.data.slice(this.data.indexOf('\r\n') + 2, this.data.indexOf('\r\n') + 2 + length).toString();
-    console.log('Parsed bulk string:', content);
     return [content];
   }
 
@@ -118,7 +113,6 @@ export class DataParser {
     while ((match = pattern.exec(dataAsString)) !== null) {
       matches.push(match[1]);
     }
-    console.log('Parsed array:', matches);
     return matches;
   }
 

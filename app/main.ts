@@ -47,8 +47,8 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
           if (payload && payload.length >= 3) {
             const [streamKey, id, ...fields] = payload;
             try {
-              storage.xadd(streamKey, id, ...fields);
-              response = encodeRedisResponse(CommonRequestCommands.XADD, id);
+              const itemId = storage.xadd(streamKey, id, ...fields);
+              response = encodeRedisResponse(CommonRequestCommands.XADD, itemId);
             } catch (error: any) {
               response = `-ERR ${error.message}\r\n`;
             }
@@ -119,3 +119,5 @@ server.listen(6379, "127.0.0.1", () => {
 server.on("error", (err) => {
   console.error("Server error:", err);
 });
+
+export { server };
