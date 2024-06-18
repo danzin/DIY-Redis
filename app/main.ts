@@ -2,10 +2,8 @@ import * as net from "net";
 import { DataParser } from "./dataParser";
 import { CommonRequestCommands } from "./commands";
 import { DataStorage } from "./dataStorage";
+import { encodeRedisResponse } from "./encoder";
 
-const encodeRedisResponse = (command: string, payload: string) => {
-  return `+${payload}\r\n`;
-};
 const storage = new DataStorage();
 
 
@@ -17,7 +15,7 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
     const parser = new DataParser(data);
     const command = parser.getCommand();
     const payload = parser.getPayload();
-
+    
     let response: string;
 
     if(command){
@@ -34,10 +32,12 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 
         case CommonRequestCommands.GET:
           if (payload && payload.length >= 1) {
+            console.log('payload: ', payload)
             const storedValue = storage.get(payload[0]);
+            console.log('storedValue: ', storedValue)
             response = storedValue !== undefined
               ? encodeRedisResponse(CommonRequestCommands.GET, storedValue)
-              : "$-1\r\n"; // Null bulk string response if the key doesn't exist
+              : "$-1\r\n"; 
           } else {
             response = "-ERR wrong number of arguments for 'get' command\r\n";
           }
@@ -56,6 +56,16 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
             response = "-ERR wrong number of arguments for 'xadd' command\r\n";
           }
           break;
+
+        case CommonRequestCommands.XRANGE:
+          if (payload && payload.length >= 3) {
+            const [streamKey, start, end] = payload;
+            const entries = storage.xrange(streamKey, start, end);
+            response = encodeRedisResponse(CommonRequestCommands.XRANGE, entries);
+          } else {
+            response = "-ERR wrong number of arguments for 'xrange' command\r\n";
+          }
+        break;
 
         case CommonRequestCommands.GETSTR:
           if (payload && payload.length >= 1) {
@@ -78,7 +88,6 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 
         case CommonRequestCommands.PING:
           response = encodeRedisResponse(CommonRequestCommands.PING, "PONG");
-
         break;
 
         case CommonRequestCommands.ECHO:
@@ -87,7 +96,6 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
           }else {
             response = "-ERR wrong number of arguments for 'get' command\r\n";
           }
-
         break;
         
         case CommonRequestCommands.TYPE:
@@ -99,7 +107,7 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
           }else {
             response = "-ERR wrong number of arguments for 'get' command\r\n";
           }
-          break;
+        break;
 
         default:
           response = "";

@@ -10,7 +10,7 @@ export class DataStorage {
   set(key: string, value: any, command: string, time: string) {
     console.log(`Setting value: ${value} for key: ${key} with ttl of ${Number(time)}`);
     this.dataMap.set(key, value);
-
+     
     if (!command) return;
     if (command.toUpperCase() !== 'PX') return;
 
@@ -18,9 +18,11 @@ export class DataStorage {
     setTimeout(() => {
       this.dataMap.delete(key);
     }, timeout);
+
   }
 
   get(key: string) {
+
     return this.dataMap.get(key);
   }
 
@@ -33,7 +35,7 @@ export class DataStorage {
     return lastSequenceNumber!;
   }
 
-  private generateNextId(stream: Map<number, Map<number, any>>, millisecondsTime: number, isWildcard: boolean): string {
+  private generateNextId(stream: Map<number, Map<number, any>>, millisecondsTime: number): string {
     const lastSequenceNumber = this.getLastSequenceNumber(stream, millisecondsTime);
       return `${millisecondsTime}-${lastSequenceNumber + 1}`;
   }
@@ -49,11 +51,10 @@ export class DataStorage {
   
     let newId: string;
     let millisecondsTime: number;
-    let isWildcard = false;
   
     if (id === "*") {
       millisecondsTime = Date.now();
-      newId = this.generateNextId(stream, millisecondsTime, false);
+      newId = this.generateNextId(stream, millisecondsTime);
     } else {
       const [millisecondsTimeStr, sequenceNumberStr] = id.split('-');
       millisecondsTime = Number(millisecondsTimeStr);
@@ -63,8 +64,7 @@ export class DataStorage {
       }
   
       if (sequenceNumberStr === '*') {
-        isWildcard = true;
-        newId = this.generateNextId(stream, millisecondsTime, true);
+        newId = this.generateNextId(stream, millisecondsTime);
       } else {
         const sequenceNumber = Number(sequenceNumberStr);
         if (isNaN(sequenceNumber)) {
@@ -87,7 +87,9 @@ export class DataStorage {
         throw new Error(`The ID specified in XADD is equal or smaller than the target stream top item`)
       }
     }else{
-      for (let seq = millisecondsTime > 0 ? 1 : 0; seq < newSequenceNumber; seq++) {
+      for (let seq = millisecondsTime === 0 ? 1 : 1; seq < newSequenceNumber; seq++) {
+        console.log(millisecondsTime,seq)
+
         if (!sequenceMap.has(seq)) {
           throw new Error(`Missing sequence number: ${seq} for millisecondsTime: ${millisecondsTime}`);
         }
@@ -109,7 +111,52 @@ export class DataStorage {
     stream.get(millisecondsTime)!.set(newSequenceNumber, entry);
 
     console.log(`Added entry with id: ${newId} to stream: ${streamKey}`);
-    return newId;
+    return newId.split('');
+  }
+
+  xrange(streamKey: string, start: string, end: string) {
+
+    const stream = this.streams.get(streamKey);
+    if (!stream) {
+      return [];
+    }
+    let startMsTime: number;
+    let startSeqNum: number;
+  
+    if (start === '-') {
+      startMsTime = 0;
+      startSeqNum = 0;
+    } else {
+      startMsTime = Number(start.split('-')[0]);
+      startSeqNum = Number(start.split('-')[1]);
+    }
+    const endMsTime = Number(end.split('-')[0]);
+    const endSeqNum = Number(end.split('-')[1]);
+  
+    const result: Array<[string, any]> = [];
+
+    for (const [msTime, sequenceMap] of stream) {
+      if (msTime < startMsTime || msTime > endMsTime) {
+        continue;
+      }
+
+      for (const [seqNum, entry] of sequenceMap) {
+        if (
+          (msTime === startMsTime && seqNum < startSeqNum) ||
+          (msTime === endMsTime && seqNum > endSeqNum)
+        ) {
+          continue;
+        }
+
+        const entryId = `${msTime}-${seqNum}`;
+        result.push([entryId, entry]);
+
+        if (msTime === endMsTime && seqNum === endSeqNum) {
+          break;
+        }
+      }
+  }
+    return result;
   }
 
   getStreamEntries(streamKey: string) {
