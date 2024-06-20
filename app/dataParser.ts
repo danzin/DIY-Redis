@@ -116,6 +116,18 @@ export class DataParser {
     return matches;
   }
 
+  private splitCommand(input: any) {
+    const regex = /"([^"]*)"|'([^']*)'|(\S+)/g;
+    const parts = [];
+    let match;
+  
+    while ((match = regex.exec(input)) !== null) {
+      parts.push(match[1] || match[2] || match[3]);
+    }
+  
+    return parts;
+  }
+
   getCommand() {
     if (!this.parsedData || !Array.isArray(this.parsedData) || this.parsedData.length === 0) {
       console.error('Parsed data is empty or invalid:', this.parsedData);
@@ -131,7 +143,11 @@ export class DataParser {
     if (!this.parsedData || !Array.isArray(this.parsedData) || this.parsedData.length < 2) {
       return null;
     }
-    const [_, ...payload] = this.parsedData;
-    return payload
+    
+    const commandString = this.parsedData.join(" ");
+    const payload = this.splitCommand(commandString);
+    payload.shift();
+
+    return payload;
   }
 }

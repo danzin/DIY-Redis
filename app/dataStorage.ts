@@ -22,8 +22,10 @@ export class DataStorage {
   }
 
   get(key: string) {
-
-    return this.dataMap.get(key);
+    console.log('key:', key)
+    const retval = this.dataMap.get(key);
+    console.log('return value: ', retval)
+    return retval
   }
 
   private getLastSequenceNumber(stream: Map<number, Map<number, any>>, millisecondsTime: number): number {
@@ -39,6 +41,10 @@ export class DataStorage {
     const lastSequenceNumber = this.getLastSequenceNumber(stream, millisecondsTime);
       return `${millisecondsTime}-${lastSequenceNumber + 1}`;
   }
+
+  private getLastItemInStream(stream: Map<number, Map<number, any>>) {
+    return [...stream][stream.size-1]
+  };
 
   xadd(streamKey: string, id: string, ...fields: string[]) {
     console.log(`xadd called with streamKey: ${streamKey}, id: ${id}, fields: ${fields}`);
@@ -120,9 +126,12 @@ export class DataStorage {
     if (!stream) {
       return [];
     }
+
     let startMsTime: number;
     let startSeqNum: number;
-  
+    let endMsTime: number;
+    let endSeqNum: number;
+
     if (start === '-') {
       startMsTime = 0;
       startSeqNum = 0;
@@ -130,9 +139,9 @@ export class DataStorage {
       startMsTime = Number(start.split('-')[0]);
       startSeqNum = Number(start.split('-')[1]);
     }
-    const endMsTime = Number(end.split('-')[0]);
-    const endSeqNum = Number(end.split('-')[1]);
-  
+    endMsTime = Number(end.split('-')[0]);
+    endSeqNum = Number(end.split('-')[1]);
+    
     const result: Array<[string, any]> = [];
 
     for (const [msTime, sequenceMap] of stream) {
@@ -159,6 +168,38 @@ export class DataStorage {
     return result;
   }
 
+  xread(streamKey: string, start: string) {
+    const stream = this.streams.get(streamKey);
+    const result: Array<[string, any]> = [];
+
+    if (!stream) {
+      return result;
+    }
+  
+    const [startMsTime, startSeqNum] = start.split('-').map(Number);
+  
+    let startedReading = false;
+  
+    for (const [msTime, sequenceMap] of stream) {
+      if (msTime > startMsTime) {
+        startedReading = true;
+      }
+  
+      if (msTime === startMsTime || startedReading) {
+        for (const [seqNum, entry] of sequenceMap) {
+          if (
+            (msTime === startMsTime && seqNum >= startSeqNum) ||
+            (msTime > startMsTime)
+          ) {
+            const entryId = `${msTime}-${seqNum}`;
+            result.push([entryId, entry]);
+          }
+        }
+      }
+    }
+    return result;
+  }
+  
   getStreamEntries(streamKey: string) {
     return this.streams.get(streamKey) || new Map();
   }

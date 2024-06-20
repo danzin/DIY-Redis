@@ -5,7 +5,8 @@ export enum CommonRequestCommands {
   ECHO = "ECHO",
   TYPE = "TYPE",
   XADD = "XADD",
-  XRANGE= "XRANGE",
+  XRANGE = "XRANGE",
+  XREAD = "XREAD",
   GETSTR = "GETSTR",
   UNKNOWN = "UNKNOWN",
 }
