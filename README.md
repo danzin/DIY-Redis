@@ -5,7 +5,7 @@
 
 #### It listens for commands on the default Redis port 6379. It's compatible with all standard redis clients, tested and working with [redis-cli](https://redis.io/docs/latest/develop/connect/cli/) in Debian. 
 
-After recieving a command through redis-cli, the server parses it and responds with a proper [RESP](https://redis.io/docs/latest/develop/reference/protocol-spec/) response. So far it can handle basic commands like PING, ECHO, SET, GET as well as [Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) with XADD, XREAD, XRANGE. All standard Redis formatting rules apply. 
+After recieving a command through redis-cli, the server parses it and responds with a proper [RESP](https://redis.io/docs/latest/develop/reference/protocol-spec/) response. So far it can handle PING, ECHO, SET, GET as well as [Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) with XADD, XREAD, XRANGE. All standard Redis formatting rules apply. 
 ![image](https://github.com/danzin/DIY-Redis/assets/8279984/b11ca00b-d196-4aa9-a086-5cc6fa4baef4)
 
 The project is built with [Bun](https://bun.sh/) 
