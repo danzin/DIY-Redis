@@ -67,6 +67,18 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
           }
         break;
 
+        case CommonRequestCommands.XREAD:
+          if (payload && payload.length >= 3) {
+            const [_, streamKey, start] = payload;
+            const entries = storage.xread(streamKey, start);
+
+            console.log('entries in main: ', entries)
+            response = encodeRedisResponse(CommonRequestCommands.XREAD,entries, streamKey );
+          } else {
+            response = "-ERR wrong number of arguments for 'xrange' command\r\n";
+          }
+        break;
+
         case CommonRequestCommands.GETSTR:
           if (payload && payload.length >= 1) {
             const [streamKey] = payload;
