@@ -3,7 +3,7 @@
 
 ![Redis_Logo](https://github.com/danzin/DIY-Redis/assets/8279984/a74d9d0a-153a-46d9-8b35-d60eaa09ab17)
 
-#### It listens for commands on the default Redis port 6379. It's compatible with all standard redis clients, tested and working with [redis-cli](https://redis.io/docs/latest/develop/connect/cli/) in Debian. 
+#### The server listens for commands on the default Redis port 6379. It's compatible with all standard redis clients, tested and working with [redis-cli](https://redis.io/docs/latest/develop/connect/cli/).
 
 After recieving a command through redis-cli, the server parses it and responds with a proper [RESP](https://redis.io/docs/latest/develop/reference/protocol-spec/) response. So far it can handle PING, ECHO, SET, GET as well as [Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) with XADD, XREAD, XRANGE. All standard Redis formatting rules apply. 
 
