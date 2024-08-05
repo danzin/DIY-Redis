@@ -9,4 +9,5 @@ export enum CommonRequestCommands {
   XREAD = "XREAD",
   GETSTR = "GETSTR",
   UNKNOWN = "UNKNOWN",
+  NULL = "NULL",
 }
