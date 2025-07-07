@@ -2,7 +2,7 @@
 
 A Redis clone implemented in TypeScript to understand how caching systems work from the inside out.
 
-### It is a work in progress.
+### Work in progress.
 
 ![Redis_Logo](https://github.com/danzin/DIY-Redis/assets/8279984/a74d9d0a-153a-46d9-8b35-d60eaa09ab17)
 
