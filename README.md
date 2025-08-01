@@ -16,7 +16,7 @@ A Redis clone implemented in TypeScript to understand how caching systems work f
 - In-memory store with simple eviction logic
 - Basic command-line interface
 
-After recieving a command through redis-cli, the server parses it and responds with a proper [RESP](https://redis.io/docs/latest/develop/reference/protocol-spec/) response. All standard Redis formatting rules apply. 
+After receiving a command through redis-cli, the server parses it and sends a proper [RESP](https://redis.io/docs/latest/develop/reference/protocol-spec/) response. All standard Redis formatting rules apply. 
 
 ![image](https://github.com/danzin/DIY-Redis/assets/8279984/b11ca00b-d196-4aa9-a086-5cc6fa4baef4)
 
