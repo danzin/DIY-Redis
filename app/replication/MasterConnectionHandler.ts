@@ -1,5 +1,5 @@
 import * as net from "net";
-import { toRESPArray } from "../utilities";
+import { handleFullResync, sendPing, sendPsync, sendReplconfCapa, sendReplconfPort } from "./handshake";
 
 export class MasterConnectionHandler {
 	private masterConnection: net.Socket;
@@ -22,8 +22,7 @@ export class MasterConnectionHandler {
 	}
 
 	private onConnect() {
-		console.log("Successfully connected to master. Sending PING.");
-		this.sendPing();
+		sendPing(this.masterConnection);
 		this.handshakeStep = 1;
 	}
 
@@ -35,18 +34,17 @@ export class MasterConnectionHandler {
 
 		for (const response of responses) {
 			console.log(`Received from master: ${response}`);
-
 			if (response === "+PONG" && this.handshakeStep === 1) {
-				this.sendReplconfPort();
+				sendReplconfPort(this.masterConnection, this.replicaPort);
 				this.handshakeStep = 2;
 			} else if (response === "+OK" && this.handshakeStep === 2) {
-				this.sendReplconfCapa();
+				sendReplconfCapa(this.masterConnection);
 				this.handshakeStep = 3;
 			} else if (response === "+OK" && this.handshakeStep === 3) {
-				this.sendPsync();
+				sendPsync(this.masterConnection);
 				this.handshakeStep = 4;
 			} else if (response.startsWith("+FULLRESYNC") && this.handshakeStep === 4) {
-				console.log("Full resync requested by master. Handshake complete.");
+				handleFullResync(response);
 			}
 		}
 	}
@@ -57,29 +55,5 @@ export class MasterConnectionHandler {
 
 	private onEnd() {
 		console.log("Disconnected from master.");
-	}
-
-	// --- Command Sending Methods ---
-
-	private sendPing() {
-		this.masterConnection.write(toRESPArray(["PING"]));
-	}
-
-	private sendReplconfPort() {
-		console.log("Master is alive. Sending first REPLCONF.");
-		const command = ["REPLCONF", "listening-port", this.replicaPort.toString()];
-		this.masterConnection.write(toRESPArray(command));
-	}
-
-	private sendReplconfCapa() {
-		console.log("First REPLCONF accepted. Sending capabilities.");
-		const command = ["REPLCONF", "capa", "psync2"];
-		this.masterConnection.write(toRESPArray(command));
-	}
-
-	private sendPsync() {
-		console.log("Capabilities accepted. Sending PSYNC.");
-		const command = ["PSYNC", "?", "-1"];
-		this.masterConnection.write(toRESPArray(command));
 	}
 }
