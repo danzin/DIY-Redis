@@ -1,5 +1,5 @@
-import { serverInfo } from "./config";
-import { StoreValue, StreamEntry } from "./types";
+import { serverInfo } from "../config";
+import { StoreValue, StreamEntry } from "../types";
 import {
 	bulkStringResponse,
 	createExpirationDate,
@@ -11,7 +11,7 @@ import {
 	simpleStringResponse,
 	toRESPEntryArray,
 	toRESPStreamArray,
-} from "./utilities";
+} from "../utilities";
 import { EventEmitter } from "events";
 
 export class CommandHandler {
@@ -42,6 +42,11 @@ export class CommandHandler {
 
 	replconf(args: string[]): string {
 		return simpleStringResponse("OK");
+	}
+
+	psync(args: string[]): string {
+		const response = `+FULLRESYNC ${serverInfo.master_replid} 0\r\n`;
+		return response;
 	}
 
 	async set(args: string[]): Promise<string> {

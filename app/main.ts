@@ -1,11 +1,12 @@
 import * as net from "net";
 import { DataParser } from "./DataParser";
-import { RedisStore } from "./RedisStore";
-import { globalCommandHandler } from "./globalDispatcher";
+import { RedisStore } from "./Redis/RedisStore";
+import { globalCommandHandler } from "./Redis/globalDispatcher";
 import { EventEmitter } from "stream";
-import { CommandHandler } from "./CommandHandler";
+import { CommandHandler } from "./Redis/CommandHandler";
 import { serverInfo } from "./config";
-import { detectServerRole, setupMasterConnection } from "./serverSetup";
+import { MasterConnectionHandler } from "./replication/MasterConnectionHandler";
+import { detectServerRole } from "./replication/handshake";
 
 export const redisStore = new RedisStore();
 export const streamEvents = new EventEmitter();
@@ -18,8 +19,8 @@ serverInfo.masterHost = masterHost;
 serverInfo.masterPort = masterPort;
 
 if (role === "slave" && masterHost && masterPort) {
-	console.log(`This server is a replica, attempting to connect to master at ${masterHost}:${masterPort}`);
-	setupMasterConnection(masterHost, masterPort, port);
+	const masterConnectionHandler = new MasterConnectionHandler(masterHost, masterPort, port);
+	masterConnectionHandler.connect();
 }
 
 const server: net.Server = net.createServer((connection: net.Socket) => {
