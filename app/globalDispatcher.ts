@@ -1,36 +1,36 @@
-import net from "net";
-import {
-	handleEchoCommand,
-	handleGetCommand,
-	handlePingCommand,
-	handleSetCommand,
-	handleTypeCommand,
-	handleXaddCommand,
-	handleXrangeCommand,
-	handleXreadCommand,
-} from "./handlers";
+import net from 'net';
+import { commandHandler } from "./main";
 
-export const globalCommandHandler = async (connection: net.Socket, payload: string[]): Promise<string> => {
-	const [command, ...args] = payload.join(" ").split(" ");
-	console.log("command and args: ", command, args);
-	switch (command.toUpperCase()) {
-		case "ECHO":
-			return handleEchoCommand(args);
-		case "PING":
-			return handlePingCommand(args);
-		case "SET":
-			return handleSetCommand(args);
-		case "GET":
-			return handleGetCommand(args);
-		case "TYPE":
-			return handleTypeCommand(args);
-		case "XADD":
-			return handleXaddCommand(args);
-		case "XREAD":
-			return await handleXreadCommand(args);
-		case "XRANGE":
-			return handleXrangeCommand(args);
-		default:
-			return "-ERR unknown command\r\n";
-	}
-};
+
+export const globalCommandHandler = async(connection: net.Socket, payload: string[]): Promise<string> => {
+  const [command, ...args] = payload.join(" ").split(" ");
+  console.log('command and args: ',command, args);
+  switch(command.toUpperCase()){
+    case "ECHO":
+      return commandHandler.echo(args);
+    case "PING":
+      return commandHandler.ping(args);
+    case "SET":
+      return commandHandler.set(args);
+    case "GET":
+      return commandHandler.get(args);
+    case "INFO":
+      return commandHandler.info(args);
+    case "REPLCONF":
+      return commandHandler.replconf(args);
+    case "TYPE":
+      return commandHandler.type(args);
+    case "XADD":
+      return commandHandler.xadd(args);
+    case "XREAD":
+      return await commandHandler.xread(args);
+    case "XRANGE":
+      return commandHandler.xrange(args);
+
+    default:
+      return "-ERR unknown command\r\n";
+
+  }
+
+
+}
