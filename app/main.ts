@@ -1,10 +1,23 @@
 import * as net from "net";
 import { DataParser } from "./DataParser";
 import { RedisStore } from "./RedisStore";
-
 import { globalCommandHandler } from "./globalDispatcher";
 
 export const redisStore = new RedisStore();
+
+let port = 6379; // Default port for Redis is 6379
+
+// Check if a custom port is provided via command line arguments
+const args = process.argv;
+const portIndex = args.findIndex((arg) => arg === "--port");
+
+if (portIndex !== -1 && args[portIndex + 1]) {
+	const customPort = parseInt(args[portIndex + 1], 10);
+	// Check if the parsed port is a valid number
+	if (!isNaN(customPort)) {
+		port = customPort;
+	}
+}
 
 const server: net.Server = net.createServer((connection: net.Socket) => {
 	console.log("New connection established");
@@ -35,8 +48,8 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 	});
 });
 
-server.listen(6379, "127.0.0.1", () => {
-	console.log("Server is listening on 127.0.0.1:6379");
+server.listen(port, "127.0.0.1", () => {
+	console.log(`Server is listening on 127.0.0.1:${port}`);
 });
 
 server.on("error", (err) => {
