@@ -12,7 +12,10 @@ A Redis clone implemented in TypeScript to understand how caching systems work f
 
 - **Basic commands:** `PING`, `SET`, `GET`, `DEL`, `INFO`
 - **[Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/)**  `XADD`, `XREAD`, `XRANGE`, blocking reads using `$`
-- **Replication**: Support for `--replicaof` flag. After starting the master server with `bun run dev`, a replica can be started with `bun run dev --port 6380 --replicaof "localhost 6379"` - Replication is in development
+- **Replication**: Support for `--replicaof` flag. After starting the master server with `bun run dev`, a replica can be started with `bun run dev --port 6380 --replicaof "localhost 6379"`
+  - Handshake processing
+  - Write commands processing
+  - Multi-replica propagation
 - In-memory store with simple eviction logic
 - Basic command-line interface
 
@@ -29,6 +32,7 @@ The project is built with [Bun](https://bun.sh/)
 ```bash 
 bun install
 bun run dev 
+
 
 
 
