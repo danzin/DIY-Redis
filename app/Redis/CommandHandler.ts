@@ -86,6 +86,20 @@ export class CommandHandler {
 		}
 	}
 
+	/** The WAIT command expects 2 arguments: numreplicas and timeout.
+	 * This command blocks the current client until all the previous write commands are successfully transferred
+	 * and acknowledged by at least the number of replicas you specify in the numreplicas argument.
+	 * If the value you specify for the timeout argument (in milliseconds) is reached, the command returns
+	 * even if the specified number of replicas were not yet reached.
+	 * The command will always return the number of replicas that acknowledged the write commands sent by the current
+	 * client before the WAIT command, both in the case where the specified number of replicas are reached, or when the timeout is reached. */
+	wait(args: string[]): string {
+		if (args.length !== 2) {
+			return "-ERR wrong number of arguments for 'wait' command\r\n";
+		}
+		return ":0\r\n";
+	}
+
 	async set(args: string[]): Promise<string> {
 		if (args.length < 2) return "-ERR Wrong number of arguments for SET\r\n";
 		const [key, value, px, time] = args;

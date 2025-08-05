@@ -1,12 +1,15 @@
 import * as net from "net";
 import { EventEmitter } from "events";
 import { handleFullResync, sendPing, sendPsync, sendReplconfCapa, sendReplconfPort } from "./handshake";
+import { toRESPArray } from "../utilities";
+import { DataParser } from "../DataParser";
 
 export class MasterConnectionHandler extends EventEmitter {
 	private masterConnection: net.Socket;
 	private handshakeStep = 0;
 	private rdbFileExpected = false;
 	private receivedDataBuffer = Buffer.alloc(0);
+	private processingOffset = 0; // Tracks the offset for REPLCONF ACK
 
 	constructor(private masterHost: string, private masterPort: number, private replicaPort: number) {
 		super();
@@ -106,23 +109,22 @@ export class MasterConnectionHandler extends EventEmitter {
 		// Apparently this requires a parser that understands the RESP protocol's structure to calculate the
 		// exact length of a command. It's a minimal implementation
 
-		// Check for array prefix '*'
-		if (this.receivedDataBuffer[0] !== 42) return 0;
-
+		if (this.receivedDataBuffer.length === 0 || this.receivedDataBuffer[0] !== 42) return 0;
 		const endOfFirstLine = this.receivedDataBuffer.indexOf("\r\n");
 		if (endOfFirstLine === -1) return 0;
-
-		const arrayLengthStr = this.receivedDataBuffer.slice(1, endOfFirstLine).toString();
-		const arrayLength = parseInt(arrayLengthStr, 10);
-
+		const arrayLength = parseInt(this.receivedDataBuffer.slice(1, endOfFirstLine).toString(), 10);
+		if (isNaN(arrayLength)) return 0;
 		let currentIndex = endOfFirstLine + 2;
+
 		// Each command part is a bulk string ($<len>\r\n<data>\r\n)
 		for (let i = 0; i < arrayLength; i++) {
-			// Find start of bulk string
-			if (this.receivedDataBuffer[currentIndex] !== 36) return 0;
+			// Check if accidentally reading past the data received so far or if the data at current position starts with '$'
+			if (currentIndex >= this.receivedDataBuffer.length || this.receivedDataBuffer[currentIndex] !== 36) return 0;
 
 			// Find end of bulk string header
-			const endOfBulkStringHeader = this.receivedDataBuffer.indexOf("\r\n", currentIndex);
+			// The header of bulk string is always $<length>\r\n
+			const endOfBulkStringHeader = this.receivedDataBuffer.indexOf("\r\n", currentIndex); // holds the index of \r
+
 			if (endOfBulkStringHeader === -1) return 0;
 
 			// Extract bulk string length
@@ -130,17 +132,35 @@ export class MasterConnectionHandler extends EventEmitter {
 				this.receivedDataBuffer.slice(currentIndex + 1, endOfBulkStringHeader).toString(),
 				10
 			);
+			if (isNaN(bulkStringLength)) return 0; // Safety check in case something other than a number was being sliced ($foo\r\n)
 
+			// The the index pointing to the position right after the entire $3\r\nGET\r\n part
 			const endOfBulkString = endOfBulkStringHeader + 2 + bulkStringLength + 2;
 			if (this.receivedDataBuffer.length < endOfBulkString) return 0;
+
+			// Move the current index to the end of the bulk string
 			currentIndex = endOfBulkString;
 		}
 
-		// Full command in the buffer
 		const commandBytes = this.receivedDataBuffer.slice(0, currentIndex);
-		console.log(`Emitting complete command from buffer: ${commandBytes.toString().replace(/\r\n/g, "\\r\\n")}`);
-		this.emit("command", commandBytes);
 
+		const parser = new DataParser(commandBytes);
+		const payload = parser.getPayload();
+		const command = payload[0]?.toLowerCase();
+		const subCommand = payload[1]?.toLowerCase();
+
+		// intercept specific commands
+		if (command === "replconf" && subCommand === "getack") {
+			console.log("Received REPLCONF GETACK *. Responding with ACK.");
+			const ackResponse = ["REPLCONF", "ACK", this.processingOffset.toString()];
+			this.masterConnection.write(toRESPArray(ackResponse));
+		} else {
+			// Full command
+			console.log(`Emitting propagated command payload:`, payload);
+			this.emit("command", payload);
+		}
+
+		this.processingOffset += currentIndex;
 		// Return the total length of the command
 		return currentIndex;
 	}
