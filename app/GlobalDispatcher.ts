@@ -1,12 +1,24 @@
 import net from "net";
 import { CommandHandler } from "./Redis/CommandHandler";
+import { EventEmitter } from "events";
 
 export class GlobalDispatcher {
-	constructor(private commandHandler: CommandHandler) {}
+	private waitAckEmitter: EventEmitter;
+
+	constructor(private commandHandler: CommandHandler, waitAckEmitter: EventEmitter) {
+		this.waitAckEmitter = waitAckEmitter;
+	}
 
 	async dispatch(connection: net.Socket | null, payload: string[]): Promise<string | undefined> {
 		const [command, ...args] = payload;
 		let response: string | undefined;
+		if (command.toUpperCase() === "REPLCONF" && args[0]?.toUpperCase() === "ACK") {
+			const offset = parseInt(args[1], 10);
+			// Emit an event that the wait command is listening for
+			this.waitAckEmitter.emit("ack", offset);
+			// Do not send any response back
+			return;
+		}
 
 		switch (command.toUpperCase()) {
 			case "ECHO":
@@ -37,6 +49,9 @@ export class GlobalDispatcher {
 			case "PSYNC":
 				this.commandHandler.psync(args, connection as net.Socket);
 				return;
+			case "WAIT":
+				response = await this.commandHandler.wait(args);
+				break;
 			default:
 				return "-ERR unknown command\r\n";
 		}
