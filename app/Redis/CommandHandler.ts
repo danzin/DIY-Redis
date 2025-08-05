@@ -1,4 +1,3 @@
-import { NetConnectOpts } from "net";
 import { serverInfo } from "../config";
 import { StoreValue, StreamEntry } from "../types";
 import {
@@ -10,6 +9,7 @@ import {
 	parseStreamEntries,
 	simpleErrorResponse,
 	simpleStringResponse,
+	toRESPArray,
 	toRESPEntryArray,
 	toRESPStreamArray,
 } from "../utilities";
@@ -61,6 +61,29 @@ export class CommandHandler {
 		connection.write(Buffer.concat([Buffer.from(rdbHeader), rdbFileBuffer]));
 
 		console.log("Sent FULLRESYNC and empty RDB file to replica.");
+
+		// Take the exact socket object from the handshake and save it to the replicas array
+		serverInfo.replicas.push(connection);
+	}
+
+	// Method to handle commmand propagation to replicas
+	propagate(payload: string[]) {
+		if (serverInfo.replicas.length === 0) {
+			return; // No replicas to propagate to
+		}
+
+		console.log(
+			`Propagating command to ${serverInfo.replicas.length} replica(s):`,
+			payload,
+			"\r\n",
+			`at connection: ${serverInfo.replicas[0].remoteAddress}:${serverInfo.replicas[0].remotePort}`
+		);
+		const commandAsRESP = toRESPArray(payload);
+
+		// Loop through all registered replica sockets and send the command
+		for (const replicaSocket of serverInfo.replicas) {
+			replicaSocket.write(commandAsRESP);
+		}
 	}
 
 	async set(args: string[]): Promise<string> {
@@ -72,6 +95,19 @@ export class CommandHandler {
 		}
 		this.redisStore.set(key, storeValue.value, storeValue.type, storeValue.expiration);
 		return simpleStringResponse("OK");
+	}
+
+	async del(args: string[]): Promise<string> {
+		if (args.length === 0) {
+			return "-ERR wrong number of arguments for 'del' command\r\n";
+		}
+		let deletedCount = 0;
+		for (const key of args) {
+			if (this.redisStore.delete(key)) {
+				deletedCount++;
+			}
+		}
+		return `:${deletedCount}\r\n`;
 	}
 
 	async get(args: string[]): Promise<string> {

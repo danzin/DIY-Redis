@@ -1,27 +1,23 @@
 import * as net from "net";
 import { DataParser } from "./DataParser";
 import { RedisStore } from "./Redis/RedisStore";
-import { globalCommandHandler } from "./Redis/globalDispatcher";
+import { GlobalDispatcher } from "./GlobalDispatcher";
 import { EventEmitter } from "stream";
 import { CommandHandler } from "./Redis/CommandHandler";
 import { serverInfo } from "./config";
 import { MasterConnectionHandler } from "./replication/MasterConnectionHandler";
-import { detectServerRole } from "./replication/handshake";
+import { detectServerRole } from "./replication/serverSetup";
 
 export const redisStore = new RedisStore();
 export const streamEvents = new EventEmitter();
 export const commandHandler = new CommandHandler(redisStore, streamEvents); // Initialize the command handler
+export const dispatcher = new GlobalDispatcher(commandHandler); // Initialize the dispatcher
 commandHandler.startExpirationCheckTask(1); // Start the expiration check task with a 1 second interval
 
 const { port, role, masterHost, masterPort } = detectServerRole(process.argv);
 serverInfo.role = role as any;
 serverInfo.masterHost = masterHost;
 serverInfo.masterPort = masterPort;
-
-if (role === "slave" && masterHost && masterPort) {
-	const masterConnectionHandler = new MasterConnectionHandler(masterHost, masterPort, port);
-	masterConnectionHandler.connect();
-}
 
 const server: net.Server = net.createServer((connection: net.Socket) => {
 	console.log("New connection established");
@@ -32,7 +28,7 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 			redisStore.cleanExpiredKeys();
 			const payload = parser.getPayload();
 
-			const response = await globalCommandHandler(connection, payload);
+			const response = await dispatcher.dispatch(connection, payload);
 
 			if (!response) return; // becayse the PSYNC case now returns undefined, this will be true and the program won't write
 			// anything further to the socket
@@ -56,6 +52,19 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 
 server.listen(port, "127.0.0.1", () => {
 	console.log(`Server is listening on 127.0.0.1:${port}`);
+
+	if (role === "slave" && masterHost && masterPort) {
+		const masterConnectionHandler = new MasterConnectionHandler(masterHost, masterPort, port);
+
+		masterConnectionHandler.on("command", (commandData: Buffer) => {
+			console.log("Received propagated command from master via event.");
+			const parser = new DataParser(commandData);
+			const payload = parser.getPayload();
+			// Execute the command, but don't send a response back to the master
+			dispatcher.dispatch(null, payload);
+		});
+		masterConnectionHandler.connect();
+	}
 });
 
 server.on("error", (err) => {
