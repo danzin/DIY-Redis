@@ -6,7 +6,7 @@ A Redis clone implemented in TypeScript to understand how caching systems work f
 
 ![Redis_Logo](https://github.com/danzin/DIY-Redis/assets/8279984/a74d9d0a-153a-46d9-8b35-d60eaa09ab17)
 
-#### The server listens for commands on the default Redis port 6379. It's compatible with all standard redis clients, tested and working with [redis-cli](https://redis.io/docs/latest/develop/connect/cli/).
+#### The server listens for commands on the default Redis port 6379. It's compatible with all standard redis clients, tested and working with [redis-cli](https://redis.io/docs/latest/develop/connect/cli/) in Ubuntu and Debian.
 
 ## 🛠 Features
 
@@ -29,6 +29,7 @@ The project is built with [Bun](https://bun.sh/)
 ```bash 
 bun install
 bun run dev 
+
 
 
 
