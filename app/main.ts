@@ -10,8 +10,9 @@ import { detectServerRole } from "./replication/serverSetup";
 
 export const redisStore = new RedisStore();
 export const streamEvents = new EventEmitter();
-export const commandHandler = new CommandHandler(redisStore, streamEvents); // Initialize the command handler
-export const dispatcher = new GlobalDispatcher(commandHandler); // Initialize the dispatcher
+export const waitAckEmitter = new EventEmitter(); // Shared event emitter for waiting for ACKs
+export const commandHandler = new CommandHandler(redisStore, streamEvents, waitAckEmitter); // Initialize the command handler
+export const dispatcher = new GlobalDispatcher(commandHandler, waitAckEmitter); // Initialize the dispatcher
 commandHandler.startExpirationCheckTask(1); // Start the expiration check task with a 1 second interval
 
 const { port, role, masterHost, masterPort } = detectServerRole(process.argv);
@@ -53,15 +54,11 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 server.listen(port, "127.0.0.1", () => {
 	console.log(`Server is listening on 127.0.0.1:${port}`);
 
-	// If the server is a replica, connect to the master
-	// and set up the MasterConnectionHandler
 	if (role === "slave" && masterHost && masterPort) {
 		const masterConnectionHandler = new MasterConnectionHandler(masterHost, masterPort, port);
 
-		masterConnectionHandler.on("command", (commandData: Buffer) => {
+		masterConnectionHandler.on("command", (payload: string[]) => {
 			console.log("Received propagated command from master via event.");
-			const parser = new DataParser(commandData);
-			const payload = parser.getPayload();
 			// Execute the command, but don't send a response back to the master
 			dispatcher.dispatch(null, payload);
 		});

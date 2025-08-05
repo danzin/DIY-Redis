@@ -17,7 +17,11 @@ import { EventEmitter } from "events";
 import * as net from "net";
 
 export class CommandHandler {
-	constructor(private redisStore: any, private streamEvents: EventEmitter) {}
+	private waitAckEmitter: EventEmitter;
+
+	constructor(private redisStore: any, private streamEvents: EventEmitter, waitAckEmitter: EventEmitter) {
+		this.waitAckEmitter = waitAckEmitter;
+	}
 	echo(args: string[]) {
 		return args.length > 0 ? simpleStringResponse(args[0]) : simpleStringResponse("");
 	}
@@ -68,22 +72,71 @@ export class CommandHandler {
 
 	// Method to handle commmand propagation to replicas
 	propagate(payload: string[]) {
-		if (serverInfo.replicas.length === 0) {
-			return; // No replicas to propagate to
-		}
+		if (serverInfo.replicas.length === 0) return; // No replicas to propagate to
 
+		const commandAsRESP = toRESPArray(payload);
+		const commandByteLength = Buffer.byteLength(commandAsRESP);
 		console.log(
 			`Propagating command to ${serverInfo.replicas.length} replica(s):`,
 			payload,
 			"\r\n",
 			`at connection: ${serverInfo.replicas[0].remoteAddress}:${serverInfo.replicas[0].remotePort}`
 		);
-		const commandAsRESP = toRESPArray(payload);
 
 		// Loop through all registered replica sockets and send the command
 		for (const replicaSocket of serverInfo.replicas) {
 			replicaSocket.write(commandAsRESP);
 		}
+
+		serverInfo.master_repl_offset += commandByteLength; // Increment the master replication offset
+	}
+
+	/** The WAIT command expects 2 arguments: numreplicas and timeout.
+	 * This command blocks the current client until all the previous write commands are successfully transferred
+	 * and acknowledged by at least the number of replicas you specify in the numreplicas argument.
+	 * If the value you specify for the timeout argument (in milliseconds) is reached, the command returns
+	 * even if the specified number of replicas were not yet reached.
+	 * The command will always return the number of replicas that acknowledged the write commands sent by the current
+	 * client before the WAIT command, both in the case where the specified number of replicas are reached, or when the timeout is reached. */
+	async wait(args: string[]): Promise<string> {
+		if (args.length !== 2) {
+			return "-ERR wrong number of arguments for 'wait' command\r\n";
+		}
+		const requiredReplicas = parseInt(args[0], 10);
+		const timeout = parseInt(args[1], 10);
+		const masterOffset = serverInfo.master_repl_offset;
+		const numberOfReplicas = serverInfo.replicas.length;
+
+		// No need to wait if there are no replicas or no writes have happened .
+		if (serverInfo.replicas.length === 0 || masterOffset === 0) {
+			return `:${serverInfo.replicas.length}\r\n`;
+		}
+
+		let ackCount = 0;
+		// Send GETACK to all replicas
+		const getAckCommand = toRESPArray(["REPLCONF", "GETACK", "*"]);
+		serverInfo.replicas.forEach((socket) => socket.write(getAckCommand));
+
+		return new Promise((resolve) => {
+			const onAckReceived = (offset: number) => {
+				if (offset >= masterOffset) {
+					ackCount++;
+					if (ackCount >= requiredReplicas) {
+						// Cleanup and resolve
+						this.waitAckEmitter.removeListener("ack", onAckReceived);
+						clearTimeout(timeoutId);
+						resolve(`:${ackCount}\r\n`); // resolve if the required number of replicas acknowledged
+					}
+				}
+			};
+
+			this.waitAckEmitter.on("ack", onAckReceived);
+			const timeoutId = setTimeout(() => {
+				// Cleanup and resolve
+				this.waitAckEmitter.removeListener("ack", onAckReceived);
+				resolve(`:${ackCount}\r\n`); // resolve with the number of replicas that acknowledged before the timeout
+			}, timeout);
+		});
 	}
 
 	async set(args: string[]): Promise<string> {
