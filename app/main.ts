@@ -53,6 +53,8 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 server.listen(port, "127.0.0.1", () => {
 	console.log(`Server is listening on 127.0.0.1:${port}`);
 
+	// If the server is a replica, connect to the master
+	// and set up the MasterConnectionHandler
 	if (role === "slave" && masterHost && masterPort) {
 		const masterConnectionHandler = new MasterConnectionHandler(masterHost, masterPort, port);
 
