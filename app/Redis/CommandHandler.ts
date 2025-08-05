@@ -1,5 +1,5 @@
-import { serverInfo } from "./config";
-import { StoreValue, StreamEntry } from "./types";
+import { serverInfo } from "../config";
+import { StoreValue, StreamEntry } from "../types";
 import {
 	bulkStringResponse,
 	createExpirationDate,
@@ -9,10 +9,12 @@ import {
 	parseStreamEntries,
 	simpleErrorResponse,
 	simpleStringResponse,
+	toRESPArray,
 	toRESPEntryArray,
 	toRESPStreamArray,
-} from "./utilities";
+} from "../utilities";
 import { EventEmitter } from "events";
+import * as net from "net";
 
 export class CommandHandler {
 	constructor(private redisStore: any, private streamEvents: EventEmitter) {}
@@ -44,6 +46,46 @@ export class CommandHandler {
 		return simpleStringResponse("OK");
 	}
 
+	psync(args: string[], connection: net.Socket): void {
+		const fullResyncResponse = `+FULLRESYNC ${serverInfo.master_replid} 0\r\n`;
+		connection.write(fullResyncResponse);
+
+		//empty RDB file from its hex representation
+		// This is a placeholder for the actual RDB file content
+		const emptyRdbHex =
+			"524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fffe00f09f42777b";
+		const rdbFileBuffer = Buffer.from(emptyRdbHex, "hex");
+
+		const rdbHeader = `$${rdbFileBuffer.length}\r\n`;
+
+		connection.write(Buffer.concat([Buffer.from(rdbHeader), rdbFileBuffer]));
+
+		console.log("Sent FULLRESYNC and empty RDB file to replica.");
+
+		// Take the exact socket object from the handshake and save it to the replicas array
+		serverInfo.replicas.push(connection);
+	}
+
+	// Method to handle commmand propagation to replicas
+	propagate(payload: string[]) {
+		if (serverInfo.replicas.length === 0) {
+			return; // No replicas to propagate to
+		}
+
+		console.log(
+			`Propagating command to ${serverInfo.replicas.length} replica(s):`,
+			payload,
+			"\r\n",
+			`at connection: ${serverInfo.replicas[0].remoteAddress}:${serverInfo.replicas[0].remotePort}`
+		);
+		const commandAsRESP = toRESPArray(payload);
+
+		// Loop through all registered replica sockets and send the command
+		for (const replicaSocket of serverInfo.replicas) {
+			replicaSocket.write(commandAsRESP);
+		}
+	}
+
 	async set(args: string[]): Promise<string> {
 		if (args.length < 2) return "-ERR Wrong number of arguments for SET\r\n";
 		const [key, value, px, time] = args;
@@ -53,6 +95,19 @@ export class CommandHandler {
 		}
 		this.redisStore.set(key, storeValue.value, storeValue.type, storeValue.expiration);
 		return simpleStringResponse("OK");
+	}
+
+	async del(args: string[]): Promise<string> {
+		if (args.length === 0) {
+			return "-ERR wrong number of arguments for 'del' command\r\n";
+		}
+		let deletedCount = 0;
+		for (const key of args) {
+			if (this.redisStore.delete(key)) {
+				deletedCount++;
+			}
+		}
+		return `:${deletedCount}\r\n`;
 	}
 
 	async get(args: string[]): Promise<string> {

@@ -1,80 +1,76 @@
 import * as net from "net";
 import { DataParser } from "./DataParser";
-import { RedisStore } from './RedisStore';
-import { globalCommandHandler } from "./globalDispatcher";
+import { RedisStore } from "./Redis/RedisStore";
+import { GlobalDispatcher } from "./GlobalDispatcher";
 import { EventEmitter } from "stream";
-import { CommandHandler } from "./CommandHandler";
+import { CommandHandler } from "./Redis/CommandHandler";
 import { serverInfo } from "./config";
+import { MasterConnectionHandler } from "./replication/MasterConnectionHandler";
+import { detectServerRole } from "./replication/serverSetup";
 
 export const redisStore = new RedisStore();
 export const streamEvents = new EventEmitter();
 export const commandHandler = new CommandHandler(redisStore, streamEvents); // Initialize the command handler
+export const dispatcher = new GlobalDispatcher(commandHandler); // Initialize the dispatcher
 commandHandler.startExpirationCheckTask(1); // Start the expiration check task with a 1 second interval
 
-let port = 6379; // Default port for Redis is 6379
-
-// Check if a custom port is provided via command line arguments
-const args = process.argv;
-const portIndex = args.findIndex(arg => arg === '--port');
-const replicaOfIndex = args.findIndex(arg => arg === '--replicaof');
-
-if (portIndex !== -1 && args[portIndex + 1]) {
-  const customPort = parseInt(args[portIndex + 1], 10);
-  // Check if the parsed port is a valid number
-  if (!isNaN(customPort)) {
-    port = customPort;
-  }
-}
-
-if (replicaOfIndex !== -1 && args[replicaOfIndex + 1]) {
-  const masterInfo = args[replicaOfIndex + 1]; // "localhost 6379"
-  const [host, portStr] = masterInfo.split(' ');
-
-  // If the flag is present, update the server's role and master info
-  if (host && portStr) {
-    serverInfo.role = 'slave';
-    serverInfo.masterHost = host;
-    serverInfo.masterPort = parseInt(portStr, 10);
-  }
-}
+const { port, role, masterHost, masterPort } = detectServerRole(process.argv);
+serverInfo.role = role as any;
+serverInfo.masterHost = masterHost;
+serverInfo.masterPort = masterPort;
 
 const server: net.Server = net.createServer((connection: net.Socket) => {
-  console.log("New connection established");
+	console.log("New connection established");
 
-  connection.on("data", async (data: Buffer) => { 
-    try {
-      const parser = new DataParser(data);
-      redisStore.cleanExpiredKeys();
-      const payload = parser.getPayload();
-      
-      const response = await globalCommandHandler(connection, payload);
+	connection.on("data", async (data: Buffer) => {
+		try {
+			const parser = new DataParser(data);
+			redisStore.cleanExpiredKeys();
+			const payload = parser.getPayload();
 
-      if (!response) return;
-      console.log('globalCommandHandler response: ',response)
-      connection.write(response);      
-    } catch (error) {
-      console.error("Error while processing:", error);
-      connection.write("-ERR internal server error\r\n");
-    }
-  
-  });
-  
-  connection.on("error", (err) => {
-    console.error("Connection error:", err);
-  });
+			const response = await dispatcher.dispatch(connection, payload);
 
-  connection.on("end", () => {
-    console.log("Client disconnected");
-  });
-   
-})
+			if (!response) return; // becayse the PSYNC case now returns undefined, this will be true and the program won't write
+			// anything further to the socket
+
+			console.log("globalCommandHandler response: ", response);
+			connection.write(response);
+		} catch (error) {
+			console.error("Error while processing:", error);
+			connection.write("-ERR internal server error\r\n");
+		}
+	});
+
+	connection.on("error", (err) => {
+		console.error("Connection error:", err);
+	});
+
+	connection.on("end", () => {
+		console.log("Client disconnected");
+	});
+});
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`Server is listening on 127.0.0.1:${port}`);
+	console.log(`Server is listening on 127.0.0.1:${port}`);
+
+	// If the server is a replica, connect to the master
+	// and set up the MasterConnectionHandler
+	if (role === "slave" && masterHost && masterPort) {
+		const masterConnectionHandler = new MasterConnectionHandler(masterHost, masterPort, port);
+
+		masterConnectionHandler.on("command", (commandData: Buffer) => {
+			console.log("Received propagated command from master via event.");
+			const parser = new DataParser(commandData);
+			const payload = parser.getPayload();
+			// Execute the command, but don't send a response back to the master
+			dispatcher.dispatch(null, payload);
+		});
+		masterConnectionHandler.connect();
+	}
 });
 
 server.on("error", (err) => {
-  console.error("Server error:", err);
+	console.error("Server error:", err);
 });
 
 export { server };
