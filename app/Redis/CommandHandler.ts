@@ -97,7 +97,9 @@ export class CommandHandler {
 		if (args.length !== 2) {
 			return "-ERR wrong number of arguments for 'wait' command\r\n";
 		}
-		return ":0\r\n";
+		const numberOfReplicas = serverInfo.replicas.length;
+
+		return `:${numberOfReplicas}\r\n`;
 	}
 
 	async set(args: string[]): Promise<string> {
