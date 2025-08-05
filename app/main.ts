@@ -34,7 +34,9 @@ const server: net.Server = net.createServer((connection: net.Socket) => {
 
 			const response = await globalCommandHandler(connection, payload);
 
-			if (!response) return;
+			if (!response) return; // becayse the PSYNC case now returns undefined, this will be true and the program won't write
+			// anything further to the socket
+
 			console.log("globalCommandHandler response: ", response);
 			connection.write(response);
 		} catch (error) {

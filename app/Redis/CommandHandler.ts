@@ -1,3 +1,4 @@
+import { NetConnectOpts } from "net";
 import { serverInfo } from "../config";
 import { StoreValue, StreamEntry } from "../types";
 import {
@@ -13,6 +14,7 @@ import {
 	toRESPStreamArray,
 } from "../utilities";
 import { EventEmitter } from "events";
+import * as net from "net";
 
 export class CommandHandler {
 	constructor(private redisStore: any, private streamEvents: EventEmitter) {}
@@ -44,9 +46,21 @@ export class CommandHandler {
 		return simpleStringResponse("OK");
 	}
 
-	psync(args: string[]): string {
-		const response = `+FULLRESYNC ${serverInfo.master_replid} 0\r\n`;
-		return response;
+	psync(args: string[], connection: net.Socket): void {
+		const fullResyncResponse = `+FULLRESYNC ${serverInfo.master_replid} 0\r\n`;
+		connection.write(fullResyncResponse);
+
+		//empty RDB file from its hex representation
+		// This is a placeholder for the actual RDB file content
+		const emptyRdbHex =
+			"524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fffe00f09f42777b";
+		const rdbFileBuffer = Buffer.from(emptyRdbHex, "hex");
+
+		const rdbHeader = `$${rdbFileBuffer.length}\r\n`;
+
+		connection.write(Buffer.concat([Buffer.from(rdbHeader), rdbFileBuffer]));
+
+		console.log("Sent FULLRESYNC and empty RDB file to replica.");
 	}
 
 	async set(args: string[]): Promise<string> {

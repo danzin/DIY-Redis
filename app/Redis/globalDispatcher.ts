@@ -1,7 +1,7 @@
 import net from "net";
 import { commandHandler } from "../main";
 
-export const globalCommandHandler = async (connection: net.Socket, payload: string[]): Promise<string> => {
+export const globalCommandHandler = async (connection: net.Socket, payload: string[]): Promise<string | undefined> => {
 	const [command, ...args] = payload.join(" ").split(" ");
 	console.log("command and args: ", command, args);
 	switch (command.toUpperCase()) {
@@ -26,7 +26,9 @@ export const globalCommandHandler = async (connection: net.Socket, payload: stri
 		case "XRANGE":
 			return commandHandler.xrange(args);
 		case "PSYNC":
-			return commandHandler.psync(args);
+			commandHandler.psync(args, connection);
+			return;
+
 		default:
 			return "-ERR unknown command\r\n";
 	}
