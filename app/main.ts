@@ -10,8 +10,9 @@ import { detectServerRole } from "./replication/serverSetup";
 
 export const redisStore = new RedisStore();
 export const streamEvents = new EventEmitter();
-export const commandHandler = new CommandHandler(redisStore, streamEvents); // Initialize the command handler
-export const dispatcher = new GlobalDispatcher(commandHandler); // Initialize the dispatcher
+export const waitAckEmitter = new EventEmitter(); // Shared event emitter for waiting for ACKs
+export const commandHandler = new CommandHandler(redisStore, streamEvents, waitAckEmitter); // Initialize the command handler
+export const dispatcher = new GlobalDispatcher(commandHandler, waitAckEmitter); // Initialize the dispatcher
 commandHandler.startExpirationCheckTask(1); // Start the expiration check task with a 1 second interval
 
 const { port, role, masterHost, masterPort } = detectServerRole(process.argv);

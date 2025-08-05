@@ -1,8 +1,8 @@
 import * as net from "net";
 import { EventEmitter } from "events";
 import { handleFullResync, sendPing, sendPsync, sendReplconfCapa, sendReplconfPort } from "./handshake";
-import { toRESPArray } from "../utilities";
 import { DataParser } from "../DataParser";
+import { toRESPArray } from "../utilities";
 
 export class MasterConnectionHandler extends EventEmitter {
 	private masterConnection: net.Socket;
@@ -160,7 +160,9 @@ export class MasterConnectionHandler extends EventEmitter {
 			this.emit("command", payload);
 		}
 
+		// Update the processing offset
 		this.processingOffset += currentIndex;
+
 		// Return the total length of the command
 		return currentIndex;
 	}
