@@ -46,6 +46,8 @@ export class GlobalDispatcher {
 				return await this.commandHandler.xread(args);
 			case "XRANGE":
 				return this.commandHandler.xrange(args);
+			case "XREVRANGE":
+				return this.commandHandler.xrevrange(args);
 			case "PSYNC":
 				this.commandHandler.psync(args, connection as net.Socket);
 				return;
