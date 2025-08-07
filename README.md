@@ -13,6 +13,7 @@ A Redis clone implemented in TypeScript to understand how caching systems work f
 - **[Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/)**  `XADD`, `XREAD`, `XRANGE`, blocking reads using `$`
 - **[Replication](https://redis.io/docs/latest/operate/oss_and_stack/management/replication/)**: Support for `--replicaof` flag. After starting the master server with `bun run dev`, a replicas can be started with `bun run dev --port 6380 --replicaof "localhost 6379"`
   - Handshake processing
+- **[Persistence](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/)**: Support for .rdb files. The system can write and read .rdb files utilizing `SAVE` and `KEYS` commands.
   - Write commands processing
   - Multi-replica propagation
   - `WAIT` command waits for either all required replicas to process previous commands and ACK, or for the timeout to finish and returns the number of replicas that ACKed
@@ -34,6 +35,7 @@ The project is built with [Bun](https://bun.sh/)
 ```bash 
 bun install
 bun run dev 
+
 
 
 
