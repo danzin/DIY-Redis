@@ -46,14 +46,18 @@ export class GlobalDispatcher {
 				return await this.commandHandler.xread(args);
 			case "XRANGE":
 				return this.commandHandler.xrange(args);
-			case "WAIT":
-				return this.commandHandler.wait(args);
 			case "PSYNC":
 				this.commandHandler.psync(args, connection as net.Socket);
 				return;
 			case "WAIT":
 				response = await this.commandHandler.wait(args);
 				break;
+			case "CONFIG":
+				return this.commandHandler.config(args);
+			case "KEYS":
+				return this.commandHandler.keys(args);
+			case "SAVE":
+				return this.commandHandler.save(args);
 			default:
 				return "-ERR unknown command\r\n";
 		}
