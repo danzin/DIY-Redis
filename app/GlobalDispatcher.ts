@@ -58,11 +58,17 @@ export class GlobalDispatcher {
 				return this.commandHandler.keys(args);
 			case "SAVE":
 				return this.commandHandler.save(args);
+			case "EXPIRE":
+				response = await this.commandHandler.expire(args);
+				break;
+			case "EXISTS":
+				return this.commandHandler.exists(args);
 			default:
 				return "-ERR unknown command\r\n";
 		}
 
-		const writeCommands = ["SET", "DEL", "XADD"];
+		// Write commands that propagate
+		const writeCommands = ["SET", "DEL", "XADD", "EXPIRE"];
 		if (writeCommands.includes(command.toUpperCase())) {
 			this.commandHandler.propagate(payload);
 		}
