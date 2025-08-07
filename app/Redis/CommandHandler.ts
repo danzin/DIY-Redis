@@ -143,14 +143,117 @@ export class CommandHandler {
 	}
 
 	async set(args: string[]): Promise<string> {
-		if (args.length < 2) return "-ERR Wrong number of arguments for SET\r\n";
-		const [key, value, px, time] = args;
-		const storeValue: StoreValue = { value, type: "string" };
-		if (px?.toLowerCase() === "px" && typeof Number(time) === "number") {
-			storeValue.expiration = createExpirationDate(Number(time));
+		if (args.length < 2) {
+			return simpleErrorResponse("wrong number of arguments for 'set' command");
 		}
-		this.redisStore.set(key, storeValue.value, storeValue.type, storeValue.expiration);
+
+		const key = args.shift()!;
+		const value = args.shift()!;
+
+		let expiration: Date | undefined = undefined;
+		let mode: "NX" | "XX" | null = null;
+		let keepTTL = false;
+
+		while (args.length > 0) {
+			const option = args.shift()!.toUpperCase();
+			let timeStr: string | undefined;
+			let time: number;
+
+			switch (option) {
+				case "EX":
+					timeStr = args.shift();
+					if (!timeStr) return simpleErrorResponse("syntax error");
+					time = parseInt(timeStr, 10);
+					expiration = createExpirationDate(time * 1000);
+					break;
+				case "PX":
+					timeStr = args.shift();
+					if (!timeStr) return simpleErrorResponse("syntax error");
+					time = parseInt(timeStr, 10);
+					expiration = createExpirationDate(time);
+					break;
+				case "EXAT":
+					timeStr = args.shift();
+					if (!timeStr) return simpleErrorResponse("syntax error");
+					time = parseInt(timeStr, 10);
+					expiration = new Date(time * 1000);
+					break;
+				case "PXAT":
+					timeStr = args.shift();
+					if (!timeStr) return simpleErrorResponse("syntax error");
+					time = parseInt(timeStr, 10);
+					expiration = new Date(time);
+					break;
+				case "NX":
+					mode = "NX";
+					break;
+				case "XX":
+					mode = "XX";
+					break;
+				case "KEEPTTL":
+					keepTTL = true;
+					break;
+				default:
+					return simpleErrorResponse("syntax error");
+			}
+		}
+		const existingValue = this.redisStore.get(key);
+
+		// Check existence conditions (NX and XX)
+		if (mode === "NX" && existingValue) {
+			return bulkStringResponse(); // (nil) because key already exists
+		}
+		if (mode === "XX" && !existingValue) {
+			return bulkStringResponse(); // (nil) because key does not exist
+		}
+
+		// Handle KEEPTTL
+		if (keepTTL && existingValue) {
+			expiration = existingValue.expiration;
+		}
+
+		this.redisStore.set(key, value, "string", expiration);
 		return simpleStringResponse("OK");
+	}
+
+	async expire(args: string[]): Promise<string> {
+		if (args.length !== 2) {
+			return simpleErrorResponse("wrong number of arguments for 'expire' command");
+		}
+
+		const [key, secondsStr] = args;
+		const existing = this.redisStore.get(key);
+
+		if (!existing) {
+			return ":0\r\n"; // Key does not exist
+		}
+
+		const seconds = parseInt(secondsStr, 10);
+		if (isNaN(seconds)) {
+			return simpleErrorResponse("value is not an integer or out of range");
+		}
+
+		const newExpiration = createExpirationDate(seconds * 1000);
+		this.redisStore.set(key, existing.value, existing.type, newExpiration);
+
+		return ":1\r\n"; // Expiration was set
+	}
+
+	async exists(args: string[]): Promise<string> {
+		if (args.length < 1) {
+			return simpleErrorResponse("wrong number of arguments for 'exists' command");
+		}
+
+		let count = 0;
+		for (const key of args) {
+			// check for the key and also ensure it's not expired.
+			const value = this.redisStore.get(key);
+			if (value && !isExpired(value.expiration)) {
+				count++;
+			}
+		}
+
+		return `:${count}\r\n`;
 	}
 
 	async del(args: string[]): Promise<string> {
