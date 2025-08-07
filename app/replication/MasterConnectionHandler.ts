@@ -1,15 +1,15 @@
 import * as net from "net";
 import { EventEmitter } from "events";
 import { handleFullResync, sendPing, sendPsync, sendReplconfCapa, sendReplconfPort } from "./handshake";
-import { toRESPArray } from "../utilities";
 import { DataParser } from "../DataParser";
+import { toRESPArray } from "../utilities";
 
 export class MasterConnectionHandler extends EventEmitter {
 	private masterConnection: net.Socket;
 	private handshakeStep = 0;
 	private rdbFileExpected = false;
 	private receivedDataBuffer = Buffer.alloc(0);
-	private processingOffset = 0; // Tracks the offset for REPLCONF ACK
+	private processingOffset = 0; // bytes processed from the buffer
 
 	constructor(private masterHost: string, private masterPort: number, private replicaPort: number) {
 		super();
@@ -160,7 +160,11 @@ export class MasterConnectionHandler extends EventEmitter {
 			this.emit("command", payload);
 		}
 
+		// Update the processing offset
 		this.processingOffset += currentIndex;
+		console.log(
+			`Processed command. Total bytes processed: ${currentIndex}. New processing offset: ${this.processingOffset}`
+		);
 		// Return the total length of the command
 		return currentIndex;
 	}

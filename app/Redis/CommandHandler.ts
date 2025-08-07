@@ -1,4 +1,5 @@
 import { serverInfo } from "../config";
+import { RDBWriter } from "../persistence/RDBWriter";
 import { StoreValue, StreamEntry } from "../types";
 import {
 	bulkStringResponse,
@@ -15,6 +16,8 @@ import {
 } from "../utilities";
 import { EventEmitter } from "events";
 import * as net from "net";
+import * as fs from "fs";
+import * as path from "path";
 
 export class CommandHandler {
 	private waitAckEmitter: EventEmitter;
@@ -178,18 +181,24 @@ export class CommandHandler {
 		return simpleStringResponse(storeValue.type);
 	}
 
-	async xadd(args: string[]) {
-		if (args.length < 4) return simpleErrorResponse("wrong number of arguments for 'xadd' command");
+	async xadd(args: string[]): Promise<string> {
+		if (args.length < 4) {
+			return simpleErrorResponse("wrong number of arguments for 'xadd' command");
+		}
 		const [streamKey, ...rest] = args;
 		const newStreamEntry = parseStreamEntries(rest);
-		if (!newStreamEntry) return simpleErrorResponse("The ID specified in XADD must be greater than 0-0");
+		if (!newStreamEntry) {
+			return simpleErrorResponse("The ID specified in XADD must be greater than 0-0");
+		}
 
 		const oldStream = this.redisStore.get(streamKey);
-		console.log("oldStream:", oldStream);
+
 		if (oldStream) {
+			if (oldStream.type !== "stream") {
+				return simpleErrorResponse("WRONGTYPE Operation against a key holding the wrong kind of value");
+			}
 			let oldStreamEntries: StreamEntry[];
 			try {
-				// Accessing the nested value property that contains the JSON string
 				oldStreamEntries = JSON.parse(oldStream.value) as StreamEntry[];
 			} catch (e) {
 				console.error("Failed to parse oldStream.value:", oldStream.value, e);
@@ -197,24 +206,23 @@ export class CommandHandler {
 			}
 			const lastStreamEntry = oldStreamEntries?.at(-1)!;
 			const newEntryId = generateEntryId(newStreamEntry[0], lastStreamEntry[0]);
-			if (newEntryId === null)
+			if (newEntryId === null) {
 				return simpleErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item");
+			}
+
 			newStreamEntry[0] = newEntryId;
 			const newStreamValue = [...oldStreamEntries, newStreamEntry];
 			this.redisStore.set(streamKey, JSON.stringify(newStreamValue), "stream", oldStream.expiration);
 
-			// Emit event after adding new entry to the stream
 			this.streamEvents.emit("new-entry", streamKey);
-
 			return bulkStringResponse(newEntryId);
 		}
+
 		const newEntryId = generateEntryId(newStreamEntry[0])!;
 		newStreamEntry[0] = newEntryId;
 		this.redisStore.set(streamKey, JSON.stringify([newStreamEntry]), "stream");
 
-		// Emit event after adding new entry to the stream
 		this.streamEvents.emit("new-entry", streamKey);
-
 		return bulkStringResponse(newEntryId);
 	}
 
@@ -352,6 +360,64 @@ export class CommandHandler {
 		const result = getEntryRange(streamEntries, start, end);
 
 		return toRESPEntryArray(result);
+	}
+
+	config(args: string[]): string {
+		const subCommand = args[0]?.toLowerCase();
+		const parameter = args[1]?.toLowerCase();
+
+		if (subCommand !== "get" || !parameter) {
+			return "-ERR Syntax error in CONFIG command\r\n";
+		}
+
+		let value: string | null = null;
+
+		switch (parameter) {
+			case "dir":
+				value = serverInfo.dir;
+				break;
+			case "dbfilename":
+				value = serverInfo.dbfilename;
+				break;
+			default:
+				// For unsupported parameters, Redis returns an empty array
+				return "*0\r\n";
+		}
+
+		// The response is an array of [parameter, value]
+		return toRESPArray([parameter, value]);
+	}
+
+	keys(args: string[]): string {
+		const pattern = args[0];
+
+		if (pattern === "*") {
+			const allKeys = this.redisStore.getKeys();
+			return toRESPArray(allKeys);
+		}
+		return toRESPArray([]); // Return empty array for other patterns
+	}
+
+	save(args: string[]): string {
+		try {
+			console.log("Starting SAVE operation...");
+
+			// Use the RDBWriter to build the file content in memory
+			const writer = new RDBWriter(this.redisStore);
+			const rdbBuffer = writer.buildRDB();
+
+			// Determine the full file path from config
+			const rdbFilePath = path.join(serverInfo.dir, serverInfo.dbfilename);
+
+			// Write the buffer to the file, overwriting it if it exists
+			fs.writeFileSync(rdbFilePath, rdbBuffer);
+
+			console.log(`DB saved on disk at ${rdbFilePath}`);
+			return simpleStringResponse("OK");
+		} catch (error) {
+			console.error("Error during SAVE operation:", error);
+			return simpleErrorResponse("Failed to save RDB file.");
+		}
 	}
 
 	checkAndDeleteExpiredKeys(): void {
