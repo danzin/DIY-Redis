@@ -7,7 +7,12 @@ export class RedisStore {
 		this.store = new Map(initStore);
 	}
 
-	set(key: string, value: any, type: "string" | "hash" | "list" | "set" | "none" | "stream", expiration?: Date): void {
+	set(
+		key: string,
+		value: any,
+		type: "string" | "hash" | "list" | "set" | "none" | "stream" | "zset",
+		expiration?: Date
+	): void {
 		const storeValue: StoreValue = { value, type, expiration };
 		this.store.set(key, storeValue);
 	}
