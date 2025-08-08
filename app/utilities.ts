@@ -108,3 +108,46 @@ export function toRESPArray(commandParts: string[]): string {
 	}
 	return resp;
 }
+
+export function toRESPArrayOfFormattedStrings(items: string[]): string {
+	let resp = `*${items.length}\r\n`;
+	// The responses from EXEC need to be handled carefully
+	// Simple strings and integers are fine, but bulk strings need to be formatted correctly
+	// without the outer quotes that a normal bulk string response has
+
+	for (const item of items) {
+		if (item.startsWith(":")) {
+			resp += item + "\r\n"; // Integers
+		} else if (item.startsWith("+")) {
+			resp += item + "\r\n"; // Simple Strings
+		} else {
+			// Assume bulk string content
+			resp += bulkStringResponse(item.replace(/\r\n/g, "")) + "\r\n";
+		}
+	}
+
+	return (
+		`*${items.length}\r\n` +
+		items
+			.map((item) => {
+				if (typeof item === "number") return `:${item}\r\n`;
+				if (item === null) return "$-1\r\n";
+				return bulkStringResponse(item); // Default to bulk string
+			})
+			.join("")
+	);
+}
+
+export function formatArrayOfResponses(items: (string | number | null)[]): string {
+	let resp = `*${items.length}\r\n`;
+	for (const item of items) {
+		if (typeof item === "number") {
+			resp += `:${item}\r\n`;
+		} else if (item === null) {
+			resp += "$-1\r\n"; // Null bulk string
+		} else {
+			resp += bulkStringResponse(item); // Simple or bulk string
+		}
+	}
+	return resp;
+}
