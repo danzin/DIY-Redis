@@ -12,6 +12,7 @@ import * as net from "net";
 
 export class SOLIDDispatcher {
 	private readonly COMMANDS_THAT_PROPAGATE = new Set(["set", "del", "incr", "expire", "xadd"]);
+	private readonly IMMEDIATE_TX_COMMANDS = new Set(["EXEC", "DISCARD", "MULTI", "WATCH"]);
 
 	constructor(private commandMap: Map<string, ICommand>, private replicationManager: ReplicationManager) {}
 
@@ -24,6 +25,12 @@ export class SOLIDDispatcher {
 		const [commandName, ...args] = payload;
 		const commandUpper = commandName.toUpperCase();
 
+		// If in transaction queue the command unless it's a special transaction command
+		if (state.inTransaction && !this.IMMEDIATE_TX_COMMANDS.has(commandUpper)) {
+			state.commandQueue.push(payload);
+			return simpleStringResponse("QUEUED");
+		}
+
 		if (commandUpper === "REPLCONF" && args[0]?.toUpperCase() === "ACK") {
 			const offset = parseInt(args[1], 10);
 			if (!isNaN(offset)) {
@@ -34,15 +41,8 @@ export class SOLIDDispatcher {
 		}
 
 		const command = this.commandMap.get(commandName.toLowerCase());
-
 		if (!command) {
 			return simpleErrorResponse(`unknown command '${commandName}'`);
-		}
-
-		// If in transaction (and not executing), queue the command
-		if (state.inTransaction && commandName.toLowerCase() !== "exec" && !isExec) {
-			state.commandQueue.push(payload);
-			return simpleStringResponse("QUEUED");
 		}
 
 		let response: string | undefined;

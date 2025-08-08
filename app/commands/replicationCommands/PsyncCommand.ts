@@ -3,11 +3,11 @@ import * as net from "net";
 import { serverInfo } from "../../config";
 
 export class PsyncCommand implements IReplicationCommand {
-  public readonly type = 'replication';
-  constructor() {}
+	public readonly type = "replication";
+	constructor() {}
 
-  public async execute(_args: string[], connection: net.Socket): Promise<typeof RESPONSE_WRITTEN> {
-    const fullResyncResponse = `+FULLRESYNC ${serverInfo.master_replid} 0\r\n`;
+	public async execute(_args: string[], connection: net.Socket): Promise<typeof RESPONSE_WRITTEN> {
+		const fullResyncResponse = `+FULLRESYNC ${serverInfo.master_replid} 0\r\n`;
 		connection.write(fullResyncResponse);
 
 		//empty RDB file from its hex representation
@@ -24,7 +24,7 @@ export class PsyncCommand implements IReplicationCommand {
 
 		// Take the exact socket object from the handshake and save it to the replicas array
 		serverInfo.replicas.push(connection);
-    
-    return RESPONSE_WRITTEN
-  }
+
+		return RESPONSE_WRITTEN;
+	}
 }
