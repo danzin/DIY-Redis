@@ -1,5 +1,3 @@
-import * as path from "path";
-
 export function detectServerRole(args: string[]) {
 	let port = 6379;
 	let role = "master";

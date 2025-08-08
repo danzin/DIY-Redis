@@ -82,7 +82,7 @@ export class GlobalDispatcher {
 		}
 
 		// Write commands that propagate
-		const writeCommands = ["SET", "DEL", "XADD", "EXPIRE"];
+		const writeCommands = ["SET", "DEL", "XADD", "EXPIRE", "INCR"];
 		if (writeCommands.includes(command.toUpperCase())) {
 			this.commandHandler.propagate(payload);
 		}
