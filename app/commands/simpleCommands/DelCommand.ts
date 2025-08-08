@@ -2,10 +2,10 @@ import { RedisStore } from "../../store/RedisStore";
 import { ISimpleCommand } from "../ICommand";
 
 export class DelCommand implements ISimpleCommand {
-  readonly type = 'simple';
-  constructor(private redisStore: RedisStore){}
+	readonly type = "simple";
+	constructor(private redisStore: RedisStore) {}
 
-  async execute(args: string[]): Promise<string> {
+	async execute(args: string[]): Promise<string> {
 		if (args.length === 0) {
 			return "-ERR wrong number of arguments for 'del' command\r\n";
 		}
@@ -16,7 +16,5 @@ export class DelCommand implements ISimpleCommand {
 			}
 		}
 		return `:${deletedCount}\r\n`;
-
-  }
-
+	}
 }

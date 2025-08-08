@@ -1,16 +1,15 @@
-      
-import { ISimpleCommand } from '../ICommand';
-import { RedisStore } from '../../store/RedisStore';
-import * as net from 'net';
-import { simpleErrorResponse, simpleStringResponse, bulkStringResponse, createExpirationDate } from '../../utilities';
-import { ConnectionState } from '../../types';
+import { ISimpleCommand } from "../ICommand";
+import { RedisStore } from "../../store/RedisStore";
+import * as net from "net";
+import { simpleErrorResponse, simpleStringResponse, bulkStringResponse, createExpirationDate } from "../../utilities";
+import { ConnectionState } from "../../types";
 
 export class SetCommand implements ISimpleCommand {
-  readonly type = 'simple';
-  constructor(private redisStore: RedisStore) {}
+	readonly type = "simple";
+	constructor(private redisStore: RedisStore) {}
 
-  public async execute(args: string[]): Promise<string> {
-  	if (args.length < 2) {
+	public async execute(args: string[]): Promise<string> {
+		if (args.length < 2) {
 			return simpleErrorResponse("wrong number of arguments for 'set' command");
 		}
 
@@ -81,5 +80,5 @@ export class SetCommand implements ISimpleCommand {
 
 		this.redisStore.set(key, value, "string", expiration);
 		return simpleStringResponse("OK");
-  }
+	}
 }

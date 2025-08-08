@@ -151,3 +151,19 @@ export function formatArrayOfResponses(items: (string | number | null)[]): strin
 	}
 	return resp;
 }
+
+export function formatArrayOfResponsesWithErrors(items: (string | number | null)[]): string {
+	let resp = `*${items.length}\r\n`;
+	for (const item of items) {
+		if (typeof item === "string" && item.startsWith("-ERR")) {
+			resp += item + "\r\n"; // This is already a formatted RESP error
+		} else if (typeof item === "number") {
+			resp += `:${item}\r\n`;
+		} else if (item === null) {
+			resp += "$-1\r\n";
+		} else {
+			resp += bulkStringResponse(String(item));
+		}
+	}
+	return resp;
+}

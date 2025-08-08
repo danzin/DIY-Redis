@@ -11,9 +11,10 @@ export class MultiCommand implements IStatefulCommand {
 			return simpleErrorResponse("wrong number of arguments for 'multi' command");
 		}
 
-		// Set the transaction flag for this specific connection
+		// Reset all relevant state flags when starting new transaction
 		state.inTransaction = true;
-
+		state.commandQueue = [];
+		state.transactionFailed = false;
 		return simpleStringResponse("OK");
 	}
 }

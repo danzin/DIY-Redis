@@ -12,7 +12,7 @@ import * as net from "net";
 
 export class SOLIDDispatcher {
 	private readonly COMMANDS_THAT_PROPAGATE = new Set(["set", "del", "incr", "expire", "xadd"]);
-	private readonly IMMEDIATE_TX_COMMANDS = new Set(["EXEC", "DISCARD", "MULTI", "WATCH"]);
+	private readonly IMMEDIATE_TX_COMMANDS = new Set(["exec", "discard", "multi", "watch"]);
 
 	constructor(private commandMap: Map<string, ICommand>, private replicationManager: ReplicationManager) {}
 
@@ -23,15 +23,36 @@ export class SOLIDDispatcher {
 		isExec: boolean = false
 	): Promise<string | undefined> {
 		const [commandName, ...args] = payload;
-		const commandUpper = commandName.toUpperCase();
+		const commandLower = commandName.toLowerCase();
+
+		if (commandLower === "replconf" && args[0]?.toLowerCase() === "ack") {
+			this.replicationManager.receiveAck(parseInt(args[1]));
+			return undefined;
+		}
+
+		if (state.inTransaction && !this.IMMEDIATE_TX_COMMANDS.has(commandLower)) {
+			// Pre-validate the command for syntax errors before queueing.
+			const command = this.commandMap.get(commandLower);
+			if (!command) {
+				state.transactionFailed = true; // Mark transaction as failed
+			} else {
+				if (commandLower === "SET" && args.length < 2) state.transactionFailed = true;
+				if (commandLower === "GET" && args.length !== 1) state.transactionFailed = true;
+				if (commandLower === "INCR" && args.length !== 1) state.transactionFailed = true;
+			}
+
+			state.commandQueue.push(payload);
+			// Even if it fails validation, Redis still replies with QUEUED.
+			return simpleStringResponse("QUEUED");
+		}
 
 		// If in transaction queue the command unless it's a special transaction command
-		if (state.inTransaction && !this.IMMEDIATE_TX_COMMANDS.has(commandUpper)) {
+		if (state.inTransaction && !this.IMMEDIATE_TX_COMMANDS.has(commandLower)) {
 			state.commandQueue.push(payload);
 			return simpleStringResponse("QUEUED");
 		}
 
-		if (commandUpper === "REPLCONF" && args[0]?.toUpperCase() === "ACK") {
+		if (commandLower === "REPLCONF" && args[0]?.toUpperCase() === "ACK") {
 			const offset = parseInt(args[1], 10);
 			if (!isNaN(offset)) {
 				this.replicationManager.receiveAck(offset);

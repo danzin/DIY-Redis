@@ -18,6 +18,7 @@ export type ServerRole = "master" | "slave";
 
 export interface ConnectionState {
 	inTransaction: boolean;
+	transactionFailed: boolean;
 	commandQueue: string[][];
 	dataBuffer: Buffer;
 }
