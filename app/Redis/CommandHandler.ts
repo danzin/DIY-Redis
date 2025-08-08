@@ -1,6 +1,6 @@
 import { serverInfo } from "../config";
 import { RDBWriter } from "../persistence/RDBWriter";
-import { StoreValue, StreamEntry } from "../types";
+import { ConnectionState, StoreValue, StreamEntry } from "../types";
 import {
 	bulkStringResponse,
 	createExpirationDate,
@@ -394,7 +394,6 @@ export class CommandHandler {
 		} else {
 			// --- BLOCKING LOGIC ---
 
-			// 1. Resolve all start IDs once before waiting
 			const resolvedStreamIds = originalStreamIds.map((id, i) => {
 				if (id === "$") {
 					const key = streamKeys[i];
@@ -408,13 +407,11 @@ export class CommandHandler {
 				return id;
 			});
 
-			// 2. Do an initial check with the now-fixed start IDs
 			const initialCheck = processXRead(resolvedStreamIds);
 			if (initialCheck.hasNewData) {
 				return toRESPStreamArray(initialCheck.results);
 			}
 
-			// 3. If no data, start the blocking promise
 			return new Promise((resolve) => {
 				let timeoutId: NodeJS.Timeout | null = null;
 
@@ -503,6 +500,66 @@ export class CommandHandler {
 		const finalEntries = count !== undefined ? reversedEntries.slice(0, count) : reversedEntries;
 
 		return toRESPEntryArray(finalEntries);
+	}
+
+	async incr(args: string[]): Promise<string> {
+		if (args.length !== 1) {
+			return simpleErrorResponse("wrong number of arguments for 'incr' command");
+		}
+
+		const key = args[0];
+		const existing = this.redisStore.get(key);
+
+		if (!existing) {
+			// Set the value to 1 and return 1.
+			this.redisStore.set(key, "1", "string");
+			return ":1\r\n";
+		}
+
+		//Parse the existing string value to an integer.
+		const numericValue = parseInt(existing.value, 10);
+
+		// Check if the parsing failed - value isn't a valid int
+		if (isNaN(numericValue)) {
+			return simpleErrorResponse("value is not an integer or out of range");
+		}
+
+		//Increment the value.
+		const newValue = numericValue + 1;
+
+		//Set the new value back into the store, preserving the original expiration.
+		this.redisStore.set(key, newValue.toString(), "string", existing.expiration);
+
+		//Return the new value as a RESP Integer.
+		return `:${newValue}\r\n`;
+	}
+
+	// MULTI does not accept any arguments.
+	multi(args: string[], state: ConnectionState): string {
+		if (args.length > 0) {
+			return simpleErrorResponse("wrong number of arguments for 'multi' command");
+		}
+
+		// Set the transaction flag for this specific connection
+		state.inTransaction = true;
+
+		return simpleStringResponse("OK");
+	}
+
+	exec(args: string[], state: ConnectionState): string {
+		if (args.length > 0) {
+			return simpleErrorResponse("wrong number of arguments for 'exec' command");
+		}
+
+		if (!state.inTransaction) {
+			return simpleErrorResponse("EXEC without MULTI");
+		}
+		const response = "*0\r\n";
+
+		state.inTransaction = false;
+		state.commandQueue = [];
+
+		return response;
 	}
 
 	config(args: string[]): string {

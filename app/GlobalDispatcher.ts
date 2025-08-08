@@ -1,6 +1,7 @@
 import net from "net";
 import { CommandHandler } from "./Redis/CommandHandler";
 import { EventEmitter } from "events";
+import { ConnectionState } from "./types";
 
 export class GlobalDispatcher {
 	private waitAckEmitter: EventEmitter;
@@ -9,7 +10,11 @@ export class GlobalDispatcher {
 		this.waitAckEmitter = waitAckEmitter;
 	}
 
-	async dispatch(connection: net.Socket | null, payload: string[]): Promise<string | undefined> {
+	async dispatch(
+		connection: net.Socket | null,
+		payload: string[],
+		state: ConnectionState
+	): Promise<string | undefined> {
 		const [command, ...args] = payload;
 		let response: string | undefined;
 		if (command.toUpperCase() === "REPLCONF" && args[0]?.toUpperCase() === "ACK") {
@@ -63,6 +68,13 @@ export class GlobalDispatcher {
 			case "EXPIRE":
 				response = await this.commandHandler.expire(args);
 				break;
+			case "INCR":
+				response = await this.commandHandler.incr(args);
+				break;
+			case "MULTI":
+				return this.commandHandler.multi(args, state);
+			case "EXEC":
+				return this.commandHandler.exec(args, state);
 			case "EXISTS":
 				return this.commandHandler.exists(args);
 			default:

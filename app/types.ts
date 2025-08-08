@@ -15,3 +15,9 @@ export type StreamEntry = [string, string[]];
 export type EntryData = Record<string, string>;
 
 export type ServerRole = "master" | "slave";
+
+export interface ConnectionState {
+	inTransaction: boolean;
+	commandQueue: string[][];
+	dataBuffer: Buffer;
+}
