@@ -2,12 +2,11 @@ import { simpleErrorResponse, simpleStringResponse } from "../../utilities";
 import { ISimpleCommand } from "../ICommand";
 
 export class ReplconfCommand implements ISimpleCommand {
-  readonly type = 'simple';
-  
-  constructor() {}
+	readonly type = "simple";
 
-  public async execute(_args: string[]): Promise<string> {
+	constructor() {}
 
-    return simpleStringResponse("OK");
-  }
+	public async execute(_args: string[]): Promise<string> {
+		return simpleStringResponse("OK");
+	}
 }

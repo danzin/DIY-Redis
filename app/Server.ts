@@ -78,6 +78,7 @@ export class Server {
 		this.connectionStates.set(connection, {
 			inTransaction: false,
 			commandQueue: [],
+			transactionFailed: false,
 			dataBuffer: Buffer.alloc(0), // Initialize with an empty buffer
 		});
 
@@ -145,6 +146,7 @@ export class Server {
 		const replicaState: ConnectionState = {
 			inTransaction: false,
 			commandQueue: [],
+			transactionFailed: false,
 			dataBuffer: Buffer.alloc(0), // This isn't used here, but completes the type.
 		};
 
