@@ -1,4 +1,4 @@
-import { RedisStore } from "../Redis/RedisStore";
+import { RedisStore } from "../store/RedisStore";
 
 export class RDBWriter {
 	private redisStore: RedisStore;
