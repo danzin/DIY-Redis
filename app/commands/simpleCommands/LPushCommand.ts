@@ -1,11 +1,12 @@
 import { ISimpleCommand } from "../ICommand";
 import { RedisStore } from "../../store/RedisStore";
 import { simpleErrorResponse } from "../../utilities";
+import { BlockingManager } from "../../services/BlockingManager";
 
 export class LPushCommand implements ISimpleCommand {
 	public readonly type = "simple";
 
-	constructor(private redisStore: RedisStore) {}
+	constructor(private redisStore: RedisStore, private blockingManager: BlockingManager) {}
 
 	public async execute(args: string[]): Promise<string> {
 		if (args.length < 2) {
@@ -41,6 +42,9 @@ export class LPushCommand implements ISimpleCommand {
 
 		// Store the updated list back into the store.
 		this.redisStore.set(key, JSON.stringify(list), "list", existing?.expiration);
+
+		// Notify the blocking manager.
+		this.blockingManager.notifyListPush(key);
 
 		// Return the new length of the list.
 		return `:${list.length}\r\n`;

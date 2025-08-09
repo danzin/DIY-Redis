@@ -27,16 +27,19 @@ import { ExecCommand } from "../commands/statefulCommands.ts/ExecCommand";
 import { PsyncCommand } from "../commands/replicationCommands/PsyncCommand";
 import { WaitCommand } from "../commands/orchestrationCommands/WaitCommand";
 import { DiscardCommand } from "../commands/statefulCommands.ts/DiscardCommand";
-import { RPushCommand } from "../commands/simpleCommands/RpushCommand";
+import { RPushCommand } from "../commands/simpleCommands/RPushCommand";
 import { LRangeCommand } from "../commands/simpleCommands/LRangeCommand";
-import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
 import { LLenCommand } from "../commands/simpleCommands/LLenCommand";
 import { LPopCommand } from "../commands/simpleCommands/LPopCommand";
+import { BlockingManager } from "../services/BlockingManager";
+import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
+import { BLPopCommand } from "../commands/statefulCommands.ts/BLPopCommand";
 
 export function createCommandRegistry(
 	redisStore: RedisStore,
 	replicationManager: ReplicationManager,
 	streamEventManager: StreamEventManager,
+	blockingManager: BlockingManager,
 	dispatchCallback?: (
 		conn: net.Socket | null,
 		payload: string[],
@@ -56,14 +59,13 @@ export function createCommandRegistry(
 	// Commands that need redisStore
 	commands.set("get", new GetCommand(redisStore));
 	commands.set("set", new SetCommand(redisStore));
-	commands.set("expire", new ExpireCommand(redisStore));
-	commands.set("exists", new ExistsCommand(redisStore));
-	commands.set("rpush", new RPushCommand(redisStore));
+	commands.set("rpush", new RPushCommand(redisStore, blockingManager));
 	commands.set("lrange", new LRangeCommand(redisStore));
-	commands.set("lpush", new LPushCommand(redisStore));
+	commands.set("lpush", new LPushCommand(redisStore, blockingManager));
 	commands.set("llen", new LLenCommand(redisStore));
 	commands.set("lpop", new LPopCommand(redisStore));
-
+	commands.set("expire", new ExpireCommand(redisStore));
+	commands.set("exists", new ExistsCommand(redisStore));
 	commands.set("del", new DelCommand(redisStore));
 	commands.set("type", new TypeCommand(redisStore));
 	commands.set("incr", new IncrCommand(redisStore));
@@ -82,6 +84,7 @@ export function createCommandRegistry(
 	if (dispatchCallback) {
 		commands.set("exec", new ExecCommand(redisStore, dispatchCallback));
 	}
+	commands.set("blpop", new BLPopCommand(blockingManager));
 
 	// Replication commands
 	commands.set("psync", new PsyncCommand());
