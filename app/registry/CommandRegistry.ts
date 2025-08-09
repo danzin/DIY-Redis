@@ -35,6 +35,7 @@ import { PingCommand } from "../commands/statefulCommands.ts/PingCommand";
 import { RPushCommand } from "../commands/simpleCommands/RPushCommand";
 import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
 import { PublishCommand } from "../commands/simpleCommands/PublisCommand";
+import { UnsubscribeCommand } from "../commands/replicationCommands/UnsubscribeCommand";
 
 export function createCommandRegistry(
 	redisStore: RedisStore,
@@ -84,6 +85,7 @@ export function createCommandRegistry(
 	// Replication commands
 	commands.set("psync", new PsyncCommand());
 	commands.set("subscribe", new SubscribeCommand(subscriptionManager));
+	commands.set("unsubscribe", new UnsubscribeCommand(subscriptionManager));
 
 	// Orchestration commands
 	commands.set("wait", new WaitCommand(replicationManager));
