@@ -1,6 +1,6 @@
 import { ISimpleCommand } from "../ICommand";
 import { RedisStore } from "../../store/RedisStore";
-import { simpleErrorResponse, bulkStringResponse } from "../../utilities";
+import { simpleErrorResponse, bulkStringResponse, toRESPArray } from "../../utilities";
 
 export class LPopCommand implements ISimpleCommand {
 	public readonly type = "simple";
@@ -8,19 +8,27 @@ export class LPopCommand implements ISimpleCommand {
 	constructor(private redisStore: RedisStore) {}
 
 	public async execute(args: string[]): Promise<string> {
-		if (args.length !== 1) {
+		if (args.length < 1 || args.length > 2) {
 			return simpleErrorResponse("wrong number of arguments for 'lpop' command");
 		}
 
 		const key = args[0];
-		const existing = this.redisStore.get(key);
+		const countStr = args[1];
+		let count: number | undefined = undefined;
 
-		// If the key doesn't exist, return a null bulk string.
-		if (!existing) {
-			return bulkStringResponse(); // Returns $-1\r\n
+		if (countStr) {
+			count = parseInt(countStr, 10);
+			if (isNaN(count) || count < 0) {
+				return simpleErrorResponse("value is not an integer or out of range");
+			}
 		}
 
-		// If the key exists but is not a list, return an error.
+		const existing = this.redisStore.get(key);
+
+		if (!existing) {
+			// If no count, return nil. If count, return empty array.
+			return count !== undefined ? toRESPArray([]) : bulkStringResponse();
+		}
 		if (existing.type !== "list") {
 			return simpleErrorResponse("WRONGTYPE Operation against a key holding the wrong kind of value");
 		}
@@ -32,22 +40,30 @@ export class LPopCommand implements ISimpleCommand {
 			return simpleErrorResponse("internal error - invalid list format");
 		}
 
-		// If the list is empty, return a null bulk string.
 		if (list.length === 0) {
-			return bulkStringResponse();
+			return count !== undefined ? toRESPArray([]) : bulkStringResponse();
 		}
 
-		// The `shift()` method removes the first element and returns it.
-		const poppedElement = list.shift();
+		if (count === undefined) {
+			// Logic for a single pop without count arg
+			const poppedElement = list.shift()!;
+			this.updateStore(key, list, existing.expiration);
+			return bulkStringResponse(poppedElement);
+		} else {
+			// Logic for multiple pops with count arg
+			// `splice` removes elements from the array and returns the removed elements.
+			const poppedElements = list.splice(0, count);
+			this.updateStore(key, list, existing.expiration);
+			return toRESPArray(poppedElements);
+		}
+	}
 
-		// If the list is now empty after popping, we can delete the key entirely.
+	// Helper method to keep the store update logic DRY
+	private updateStore(key: string, list: string[], expiration: Date | undefined): void {
 		if (list.length === 0) {
 			this.redisStore.delete(key);
 		} else {
-			this.redisStore.set(key, JSON.stringify(list), "list", existing.expiration);
+			this.redisStore.set(key, JSON.stringify(list), "list", expiration);
 		}
-
-		// Return the element that was removed, formatted as a bulk string.
-		return bulkStringResponse(poppedElement);
 	}
 }
