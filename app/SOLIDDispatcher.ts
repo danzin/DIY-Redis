@@ -20,8 +20,17 @@ export class SOLIDDispatcher {
 		"rpush",
 		"lpush",
 		"lpop",
+		"publish",
 	]);
 	private readonly IMMEDIATE_TX_COMMANDS = new Set(["exec", "discard", "multi", "watch"]);
+	private readonly ALLOWED_SUBSCRIBED_COMMANDS = new Set([
+		"subscribe",
+		"unsubscribe",
+		"psubscribe",
+		"punsubscribe",
+		"ping",
+		"quit",
+	]);
 
 	constructor(private commandMap: Map<string, ICommand>, private replicationManager: ReplicationManager) {}
 
@@ -53,6 +62,16 @@ export class SOLIDDispatcher {
 			state.commandQueue.push(payload);
 			// Even if it fails validation, Redis still replies with QUEUED.
 			return simpleStringResponse("QUEUED");
+		}
+
+		// Check if the connection is in subscribe mode.
+		if (state.subscribedChannels.size > 0) {
+			// If so, check if the current command is allowed.
+			if (!this.ALLOWED_SUBSCRIBED_COMMANDS.has(commandLower)) {
+				return simpleErrorResponse(
+					`Can't execute '${commandName}': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context`
+				);
+			}
 		}
 
 		// If in transaction queue the command unless it's a special transaction command

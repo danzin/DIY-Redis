@@ -14,6 +14,7 @@ import { StreamEventManager } from "./commands/StreamEventManager";
 import { SOLIDDispatcher } from "./SOLIDDispatcher";
 import { ExecCommand } from "./commands/statefulCommands.ts/ExecCommand";
 import { BlockingManager } from "./services/BlockingManager";
+import { SubscriptionManager } from "./services/SubscriptionManager";
 
 export class Server {
 	private server: net.Server;
@@ -23,24 +24,26 @@ export class Server {
 	private streamEventManager: StreamEventManager;
 	private connectionStates = new Map<net.Socket, ConnectionState>();
 	private blockingManager: BlockingManager;
+	private subscriptionManager: SubscriptionManager;
 
 	constructor() {
 		this.redisStore = new RedisStore();
 		this.replicationManager = new ReplicationManager();
 		this.streamEventManager = new StreamEventManager();
 		this.blockingManager = new BlockingManager(this.redisStore, this.replicationManager);
-
+		this.subscriptionManager = new SubscriptionManager();
+		// Create the registry WITHOUT the exec command first
 		const commandMap = createCommandRegistry(
 			this.redisStore,
 			this.replicationManager,
 			this.streamEventManager,
-			this.blockingManager
+			this.blockingManager,
+			this.subscriptionManager
 		);
 
+		commandMap.set("exec", new ExecCommand(commandMap, this.replicationManager));
 		// Create the dispatcher
 		this.dispatcher = new SOLIDDispatcher(commandMap, this.replicationManager);
-
-		commandMap.set("exec", new ExecCommand(this.redisStore, this.dispatcher.dispatch.bind(this.dispatcher)));
 
 		this.server = net.createServer(this.handleConnection.bind(this));
 	}
@@ -88,6 +91,7 @@ export class Server {
 			commandQueue: [],
 			transactionFailed: false,
 			dataBuffer: Buffer.alloc(0), // Initialize with an empty buffer
+			subscribedChannels: new Set(),
 		});
 
 		connection.on("data", async (data: Buffer) => {
@@ -156,6 +160,7 @@ export class Server {
 			commandQueue: [],
 			transactionFailed: false,
 			dataBuffer: Buffer.alloc(0), // This isn't used here, but completes the type.
+			subscribedChannels: new Set(),
 		};
 
 		masterConnectionHandler.on("command", (payload: string[]) => {

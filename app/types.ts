@@ -21,4 +21,5 @@ export interface ConnectionState {
 	transactionFailed: boolean;
 	commandQueue: string[][];
 	dataBuffer: Buffer;
+	subscribedChannels: Set<string>;
 }

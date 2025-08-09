@@ -1,11 +1,9 @@
 import { StreamEventManager } from "../commands/StreamEventManager";
 import { ReplicationManager } from "../replication/ReplicationManager";
 import { RedisStore } from "../store/RedisStore";
-import * as net from "net";
-import { ConnectionState } from "../types";
+
 import { ICommand } from "../commands/ICommand";
 import { EchoCommand } from "../commands/simpleCommands/EchoCommand";
-import { PingCommand } from "../commands/simpleCommands/PingCommand";
 import { InfoCommand } from "../commands/simpleCommands/InfoCommand";
 import { ReplconfCommand } from "../commands/simpleCommands/ReplconfCommand";
 import { ConfigCommand } from "../commands/simpleCommands/ConfigCommand";
@@ -23,35 +21,33 @@ import { XrevrangeCommand } from "../commands/streamCommands/XrevrangeCommand";
 import { XaddCommand } from "../commands/streamCommands/XaddCommand";
 import { XreadCommand } from "../commands/streamCommands/XreadCommand";
 import { MultiCommand } from "../commands/statefulCommands.ts/MultiCommand";
-import { ExecCommand } from "../commands/statefulCommands.ts/ExecCommand";
 import { PsyncCommand } from "../commands/replicationCommands/PsyncCommand";
 import { WaitCommand } from "../commands/orchestrationCommands/WaitCommand";
 import { DiscardCommand } from "../commands/statefulCommands.ts/DiscardCommand";
-import { RPushCommand } from "../commands/simpleCommands/RPushCommand";
 import { LRangeCommand } from "../commands/simpleCommands/LRangeCommand";
 import { LLenCommand } from "../commands/simpleCommands/LLenCommand";
 import { LPopCommand } from "../commands/simpleCommands/LPopCommand";
 import { BlockingManager } from "../services/BlockingManager";
-import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
 import { BLPopCommand } from "../commands/statefulCommands.ts/BLPopCommand";
+import { SubscriptionManager } from "../services/SubscriptionManager";
+import { SubscribeCommand } from "../commands/replicationCommands/SubscribeCommand";
+import { PingCommand } from "../commands/statefulCommands.ts/PingCommand";
+import { RPushCommand } from "../commands/simpleCommands/RPushCommand";
+import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
+import { PublishCommand } from "../commands/simpleCommands/PublisCommand";
+import { UnsubscribeCommand } from "../commands/replicationCommands/UnsubscribeCommand";
 
 export function createCommandRegistry(
 	redisStore: RedisStore,
 	replicationManager: ReplicationManager,
 	streamEventManager: StreamEventManager,
 	blockingManager: BlockingManager,
-	dispatchCallback?: (
-		conn: net.Socket | null,
-		payload: string[],
-		st: ConnectionState,
-		isExec: boolean
-	) => Promise<string | undefined>
+	subscriptionManager: SubscriptionManager
 ): Map<string, ICommand> {
 	const commands = new Map<string, ICommand>();
 
 	// Simple commands (only need basic dependencies)
 	commands.set("echo", new EchoCommand());
-	commands.set("ping", new PingCommand());
 	commands.set("info", new InfoCommand());
 	commands.set("replconf", new ReplconfCommand());
 	commands.set("config", new ConfigCommand());
@@ -81,13 +77,15 @@ export function createCommandRegistry(
 	// Stateful commands
 	commands.set("multi", new MultiCommand());
 	commands.set("discard", new DiscardCommand());
-	if (dispatchCallback) {
-		commands.set("exec", new ExecCommand(redisStore, dispatchCallback));
-	}
+	commands.set("publish", new PublishCommand(subscriptionManager));
+
 	commands.set("blpop", new BLPopCommand(blockingManager));
+	commands.set("ping", new PingCommand());
 
 	// Replication commands
 	commands.set("psync", new PsyncCommand());
+	commands.set("subscribe", new SubscribeCommand(subscriptionManager));
+	commands.set("unsubscribe", new UnsubscribeCommand(subscriptionManager));
 
 	// Orchestration commands
 	commands.set("wait", new WaitCommand(replicationManager));
