@@ -1,5 +1,6 @@
 import { EventEmitter } from "events";
 import { RedisStore } from "../store/RedisStore";
+import { ReplicationManager } from "../replication/ReplicationManager";
 
 interface WaitingClient {
 	keys: string[];
@@ -11,7 +12,7 @@ export class BlockingManager {
 	//map where the key is the list key (e.g., "list_key") and the value is a queue of waiting clients
 	private waitingQueues = new Map<string, WaitingClient[]>();
 
-	constructor(private redisStore: RedisStore) {}
+	constructor(private redisStore: RedisStore, private replicationManager: ReplicationManager) {}
 
 	public async blockOnLists(
 		keys: string[],
@@ -20,7 +21,7 @@ export class BlockingManager {
 	): Promise<[string, string] | null> {
 		// Try an immediate, non-blocking pop on all keys.
 		for (const key of keys) {
-			const popped = this.tryPop(key);
+			const popped = this.popAndPropagate(key);
 			if (popped) {
 				return [key, popped];
 			}
@@ -62,19 +63,31 @@ export class BlockingManager {
 	public notifyListPush(key: string): void {
 		const queue = this.waitingQueues.get(key);
 		if (queue && queue.length > 0) {
-			// The first client in the queue is the one that has been waiting the longest.
 			const waiter = queue.shift()!;
-
-			const popped = this.tryPop(key);
+			// and here
+			const popped = this.popAndPropagate(key);
 			if (popped) {
-				// "Wake up" the waiting client by resolving its promise.
 				waiter.resolve([key, popped]);
+			} else {
+				queue.unshift(waiter);
 			}
 		}
 	}
 
+	private popAndPropagate(key: string): string | null {
+		// This performs the LPOP logic
+		const poppedElement = this.tryLPop(key);
+
+		if (poppedElement) {
+			// If successful, propagate the effect as an LPOP command
+			this.replicationManager.propagate(["LPOP", key]);
+		}
+
+		return poppedElement;
+	}
+
 	// Helper to perform the actual pop operation
-	private tryPop(key: string): string | null {
+	private tryLPop(key: string): string | null {
 		const existing = this.redisStore.get(key);
 		if (!existing || existing.type !== "list") return null;
 

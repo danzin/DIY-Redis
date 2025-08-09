@@ -28,7 +28,7 @@ export class Server {
 		this.redisStore = new RedisStore();
 		this.replicationManager = new ReplicationManager();
 		this.streamEventManager = new StreamEventManager();
-		this.blockingManager = new BlockingManager(this.redisStore);
+		this.blockingManager = new BlockingManager(this.redisStore, this.replicationManager);
 
 		const commandMap = createCommandRegistry(
 			this.redisStore,
