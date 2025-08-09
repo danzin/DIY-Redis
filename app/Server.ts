@@ -13,6 +13,7 @@ import { createCommandRegistry } from "./registry/CommandRegistry";
 import { StreamEventManager } from "./commands/StreamEventManager";
 import { SOLIDDispatcher } from "./SOLIDDispatcher";
 import { ExecCommand } from "./commands/statefulCommands.ts/ExecCommand";
+import { BlockingManager } from "./services/BlockingManager";
 
 export class Server {
 	private server: net.Server;
@@ -21,13 +22,20 @@ export class Server {
 	private replicationManager: ReplicationManager;
 	private streamEventManager: StreamEventManager;
 	private connectionStates = new Map<net.Socket, ConnectionState>();
+	private blockingManager: BlockingManager;
 
 	constructor() {
 		this.redisStore = new RedisStore();
 		this.replicationManager = new ReplicationManager();
 		this.streamEventManager = new StreamEventManager();
+		this.blockingManager = new BlockingManager(this.redisStore, this.replicationManager);
 
-		const commandMap = createCommandRegistry(this.redisStore, this.replicationManager, this.streamEventManager);
+		const commandMap = createCommandRegistry(
+			this.redisStore,
+			this.replicationManager,
+			this.streamEventManager,
+			this.blockingManager
+		);
 
 		// Create the dispatcher
 		this.dispatcher = new SOLIDDispatcher(commandMap, this.replicationManager);
