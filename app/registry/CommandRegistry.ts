@@ -30,6 +30,7 @@ import { DiscardCommand } from "../commands/statefulCommands.ts/DiscardCommand";
 import { RPushCommand } from "../commands/simpleCommands/RpushCommand";
 import { LRangeCommand } from "../commands/simpleCommands/LRangeCommand";
 import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
+import { LLenCommand } from "../commands/simpleCommands/LLenCommand";
 
 export function createCommandRegistry(
 	redisStore: RedisStore,
@@ -59,6 +60,7 @@ export function createCommandRegistry(
 	commands.set("rpush", new RPushCommand(redisStore));
 	commands.set("lrange", new LRangeCommand(redisStore));
 	commands.set("lpush", new LPushCommand(redisStore));
+	commands.set("llen", new LLenCommand(redisStore));
 	commands.set("del", new DelCommand(redisStore));
 	commands.set("type", new TypeCommand(redisStore));
 	commands.set("incr", new IncrCommand(redisStore));
