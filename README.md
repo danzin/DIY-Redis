@@ -22,6 +22,8 @@ A Redis clone implemented in TypeScript to understand how caching systems work f
 - **[Transactions](https://redis.io/docs/latest/develop/using-commands/transactions/)**: `MULTI`, `INCR`, `EXEC`, `DISCARD` commands supported.
   - Proper error handling for invalid operations or syntax errors
   - Support for multiple transactions
+- **[Lists](https://redis.io/docs/latest/develop/data-types/lists/)**: `RPUSH`, `LPUSH`, `LPOP`, `LLEN`, `LRANGE`, `BLPOP`
+  - `BLPOP` handles timeouts and proerly propagates to replicas
 - **Basic commands:** `PING`, `SET`, `GET`, `DEL`, `INFO`, `TYPE`, `EXPIRE`, `EXISTS`, `SAVE`, `WAIT`. 
   - **SET** Has full support for all options: `EX`, `PX`, `NX`, `XX`, `KEEPTTL`, `PXAT`, `EXAT`  
 - In-memory store with simple eviction logic
@@ -40,6 +42,7 @@ The project is built with [Bun](https://bun.sh/)
 ```bash 
 bun install
 bun run dev 
+
 
 
 
