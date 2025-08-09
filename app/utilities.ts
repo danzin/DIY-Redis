@@ -155,13 +155,14 @@ export function formatArrayOfResponses(items: (string | number | null)[]): strin
 export function formatArrayOfResponsesWithErrors(items: (string | number | null)[]): string {
 	let resp = `*${items.length}\r\n`;
 	for (const item of items) {
-		if (typeof item === "string" && item.startsWith("-ERR")) {
-			resp += item + "\r\n"; // This is already a formatted RESP error
+		if (typeof item === "string" && item.startsWith("-")) {
+			resp += item + "\r\n";
 		} else if (typeof item === "number") {
 			resp += `:${item}\r\n`;
 		} else if (item === null) {
 			resp += "$-1\r\n";
 		} else {
+			// All other strings are treated as successful bulk strings.
 			resp += bulkStringResponse(String(item));
 		}
 	}
