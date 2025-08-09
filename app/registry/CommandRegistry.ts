@@ -34,6 +34,7 @@ import { SubscribeCommand } from "../commands/replicationCommands/SubscribeComma
 import { PingCommand } from "../commands/statefulCommands.ts/PingCommand";
 import { RPushCommand } from "../commands/simpleCommands/RPushCommand";
 import { LPushCommand } from "../commands/simpleCommands/LPushCommand";
+import { PublishCommand } from "../commands/simpleCommands/PublisCommand";
 
 export function createCommandRegistry(
 	redisStore: RedisStore,
@@ -75,6 +76,7 @@ export function createCommandRegistry(
 	// Stateful commands
 	commands.set("multi", new MultiCommand());
 	commands.set("discard", new DiscardCommand());
+	commands.set("publish", new PublishCommand(subscriptionManager));
 
 	commands.set("blpop", new BLPopCommand(blockingManager));
 	commands.set("ping", new PingCommand());

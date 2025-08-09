@@ -20,6 +20,7 @@ export class SOLIDDispatcher {
 		"rpush",
 		"lpush",
 		"lpop",
+		"publish",
 	]);
 	private readonly IMMEDIATE_TX_COMMANDS = new Set(["exec", "discard", "multi", "watch"]);
 
