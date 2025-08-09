@@ -11,7 +11,7 @@ import { simpleErrorResponse, simpleStringResponse } from "./utilities";
 import * as net from "net";
 
 export class SOLIDDispatcher {
-	private readonly COMMANDS_THAT_PROPAGATE = new Set(["set", "del", "incr", "expire", "xadd", "rpush"]);
+	private readonly COMMANDS_THAT_PROPAGATE = new Set(["set", "del", "incr", "expire", "xadd", "rpush", "lpush"]);
 	private readonly IMMEDIATE_TX_COMMANDS = new Set(["exec", "discard", "multi", "watch"]);
 
 	constructor(private commandMap: Map<string, ICommand>, private replicationManager: ReplicationManager) {}
