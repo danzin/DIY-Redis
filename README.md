@@ -14,11 +14,12 @@ It’s built to learn the inner workings of caching systems — from parsing RES
 
 
 ### 🛠 Features
-- [x] Basic commands: `PING`, `SET`, `GET`, `DEL`, `INFO`, ...
-- [x] Lists: `RPUSH`, `LPUSH`, `LPOP`, `BLPOP` (with timeouts + replication support)
-- [x] Transactions: `MULTI`, `EXEC`, `DISCARD`, `INCR`
-- [x] Persistence: `.rdb` read/write with compliance parser
-- [x] Replication: `--replicaof` flag, ACK handling, multi-replica propagation
+- [x] **Core commands**: `PING`, `SET`, `GET`, `DEL`, `INFO`, `TYPE`, `EXPIRE`, `EXISTS`, `SAVE`, `WAIT`. SET supports for all options: `EX`, `PX`, `NX`, `XX`, `KEEPTTL`, `PXAT`, `EXAT`
+- [x] **Lists**: `RPUSH`, `LPUSH`, `LPOP`, `BLPOP` (with timeouts + replication support)
+- [x] **Transactions**: `MULTI`, `EXEC`, `DISCARD`, `INCR` Support for multiple transactions
+- [x] **Persistence**: `.rdb` read/write with compliance parser utilizing SAVE and KEYS commands
+- [x] **Replication**: `--replicaof` flag, ACK handling, multi-replica propagation
+- [x] **Pub/Sub**: `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH`
 - [ ] Cluster mode (planned)
     
 - In-memory store with simple eviction logic
@@ -49,6 +50,7 @@ After receiving a command through redis-cli, the server parses it and sends a pr
 The project is built with [Bun](https://bun.sh/) 
 
 ![logo-square](https://github.com/danzin/DIY-Redis/assets/8279984/d3372183-e1c0-43f3-a1da-e299aa910e13)
+
 
 
 
