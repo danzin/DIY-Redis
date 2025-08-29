@@ -1,6 +1,8 @@
 # DIY-Redis
 
-A Redis clone implemented in TypeScript to understand how caching systems work from the inside out using Command Pattern. 
+DIY-Redis is a lightweight Redis clone written in TypeScript with Bun.
+It’s built to learn the inner workings of caching systems — from parsing RESP commands to replication, persistence, and streams.
+
 
 ### Work in progress.
 
@@ -51,6 +53,7 @@ The project is built with [Bun](https://bun.sh/)
 ```bash 
 bun install
 bun run dev 
+
 
 
 
